@@ -1,0 +1,22 @@
+name: mochiwallet
+services:
+  mochiwallet:
+    build: https://github.com/Maskbuild/MochiWallet.git#main
+    container_name: mochiwallet
+    ports:
+      - "3001:3001"
+    volumes:
+      - /DATA/AppData/mochiwallet/data:/app/data
+      - /DATA/AppData/mochiwallet/uploads:/app/uploads
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - TZ=Asia/Bangkok
+    restart: unless-stopped
+x-casaos:
+  title:
+    en_us: MochiWallet 🍡
+  icon: https://raw.githubusercontent.com/Maskbuild/MochiWallet/main/public/mochi-bunny.svg
+  port_map: "3001"
+  index: /
+  scheme: http

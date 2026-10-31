@@ -1,0 +1,63 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    font-family: 'Prompt', sans-serif;
+    background-color: #FDF8F0;
+    background-image: radial-gradient(#E8DAFF 0.85px, transparent 0.85px), radial-gradient(#FFD6E0 0.85px, #FDF8F0 0.85px);
+    background-size: 36px 36px;
+    background-position: 0 0, 18px 18px;
+    color: #5C4B51;
+  }
+
+  h1, h2, h3, .font-cute {
+    font-family: 'Mali', 'Prompt', cursive, sans-serif;
+  }
+}
+
+/* Hide scrollbar for elements that should not show a scrollbar */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Cute custom scrollbar for main window */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #FFFDF9;
+}
+::-webkit-scrollbar-thumb {
+  background: #FFD6E0;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #FFACC7;
+}
+
+/* Subtle checkerboard for previewing transparent PNG/GIF */
+.bg-transparent-checker {
+  background-image:
+    linear-gradient(45deg, rgba(92, 75, 81, 0.05) 25%, transparent 25%),
+    linear-gradient(-45deg, rgba(92, 75, 81, 0.05) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, rgba(92, 75, 81, 0.05) 75%),
+    linear-gradient(-45deg, transparent 75%, rgba(92, 75, 81, 0.05) 75%);
+  background-size: 16px 16px;
+  background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+}
+
+@keyframes floatSlow {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-4px); }
+}
+
+.animate-float {
+  animation: floatSlow 3.2s ease-in-out infinite;
+}

@@ -1,0 +1,14 @@
+services:
+  finance-web:
+    build: .
+    container_name: pastel-cozy-finance
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./data:/app/data
+      - ./uploads:/app/uploads
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+    restart: unless-stopped
+
