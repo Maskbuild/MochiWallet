@@ -7,7 +7,7 @@ services:
     command:
       - node
       - -e
-      - fetch('https://raw.githubusercontent.com/Maskbuild/MochiWallet/main/boot.js').then(r=>r.text()).then(eval)
+      - fetch('https://raw.githubusercontent.com/Maskbuild/MochiWallet/0b91ee2/boot.js').then(r=>r.text()).then(eval)
     ports:
       - "3002:3002"
     volumes:
