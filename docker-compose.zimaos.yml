@@ -11,8 +11,7 @@ services:
     ports:
       - "3002:3002"
     volumes:
-      - /DATA/AppData/mochiwallet/data:/app/data
-      - /DATA/AppData/mochiwallet/uploads:/app/uploads
+      - /DATA/AppData/mochiwallet:/app
     environment:
       - NODE_ENV=production
       - PORT=3002

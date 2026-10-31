@@ -9,7 +9,7 @@
   fs.mkdirSync('/app/uploads/slips', { recursive: true });
   fs.mkdirSync('/app/uploads/attachments', { recursive: true });
 
-  console.log('📦 Downloading latest MochiWallet release from GitHub...');
+  console.log('📦 Downloading latest MochiWallet scripts from GitHub...');
   const res = await fetch('https://codeload.github.com/Maskbuild/MochiWallet/tar.gz/refs/heads/main');
   if (!res.ok) {
     throw new Error('Failed to download repo tarball: ' + res.status);
@@ -17,18 +17,22 @@
   const buf = Buffer.from(await res.arrayBuffer());
   fs.writeFileSync('/tmp/mochi.tar.gz', buf);
 
-  execSync('rm -rf /tmp/mochi-extract && mkdir -p /tmp/mochi-extract && tar -xzf /tmp/mochi.tar.gz -C /tmp/mochi-extract --strip-components=1', {
+  // BusyBox tar on Alpine Linux does not support --strip-components, so extract normally
+  execSync('rm -rf /tmp/mochi-extract && mkdir -p /tmp/mochi-extract && tar -xzf /tmp/mochi.tar.gz -C /tmp/mochi-extract', {
     stdio: 'inherit',
   });
 
-  for (const item of ['package.json', 'package-lock.json', 'dist', 'public', 'server', 'index.html']) {
-    if (fs.existsSync('/tmp/mochi-extract/' + item)) {
-      execSync('cp -rf /tmp/mochi-extract/' + item + ' /app/', { stdio: 'inherit' });
+  const dirs = fs.readdirSync('/tmp/mochi-extract');
+  const extractedRoot = '/tmp/mochi-extract/' + (dirs[0] || 'MochiWallet-main');
+
+  for (const item of ['package.json', 'package-lock.json', 'dist', 'public', 'server', 'index.html', 'README.md']) {
+    if (fs.existsSync(extractedRoot + '/' + item)) {
+      execSync('cp -rf "' + extractedRoot + '/' + item + '" /app/', { stdio: 'inherit' });
     }
   }
 
   if (!fs.existsSync('/app/node_modules/express')) {
-    console.log('⚡ Installing lightweight server dependencies...');
+    console.log('⚡ Installing server dependencies into /app/node_modules...');
     execSync('npm install --omit=dev --no-audit --no-fund', {
       cwd: '/app',
       stdio: 'inherit',
