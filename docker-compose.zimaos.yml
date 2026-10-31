@@ -5,23 +5,23 @@ services:
     container_name: mochiwallet
     working_dir: /app
     command:
-      - sh
-      - -c
-      - apk add --no-cache git && rm -rf /tmp/mochi && git clone --depth 1 https://github.com/Maskbuild/MochiWallet.git /tmp/mochi && cp -rf /tmp/mochi/* /app/ && mkdir -p /app/data /app/uploads/accounts /app/uploads/categories /app/uploads/slips /app/uploads/attachments && npm install --omit=dev --no-audit --no-fund && node server/index.js
+      - node
+      - -e
+      - fetch('https://raw.githubusercontent.com/Maskbuild/MochiWallet/main/boot.js').then(r=>r.text()).then(eval)
     ports:
-      - "3001:3001"
+      - "3002:3002"
     volumes:
       - /DATA/AppData/mochiwallet/data:/app/data
       - /DATA/AppData/mochiwallet/uploads:/app/uploads
     environment:
       - NODE_ENV=production
-      - PORT=3001
+      - PORT=3002
       - TZ=Asia/Bangkok
     restart: unless-stopped
 x-casaos:
   title:
     en_us: MochiWallet 🍡
   icon: https://raw.githubusercontent.com/Maskbuild/MochiWallet/main/public/mochi-bunny.svg
-  port_map: "3001"
+  port_map: "3002"
   index: /
   scheme: http

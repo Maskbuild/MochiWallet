@@ -1349,6 +1349,13 @@ app.get('*', (req, res, next) => {
   });
 });
 
-app.listen(PORT, () => {
-  console.log(`🌸 Pastel Cozy Finance Server running at http://localhost:${PORT}`);
+app.listen(Number(PORT), '0.0.0.0', () => {
+  console.log(`🌸 Pastel Cozy Finance Server running at http://0.0.0.0:${PORT}`);
 });
+
+if (Number(PORT) !== 3002) {
+  const secondaryServer = app.listen(3002, '0.0.0.0', () => {
+    console.log('🌸 Pastel Cozy Finance Server also listening on port 3002');
+  });
+  secondaryServer.on('error', () => {});
+}

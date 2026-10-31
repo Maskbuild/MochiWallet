@@ -16,5 +16,5 @@ COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/server ./server
 RUN mkdir -p /app/data /app/uploads/accounts /app/uploads/categories /app/uploads/slips /app/uploads/attachments
-EXPOSE 3001
+EXPOSE 3001 3002
 CMD ["node", "server/index.js"]

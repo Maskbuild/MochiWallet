@@ -3,12 +3,11 @@ services:
     build: .
     container_name: pastel-cozy-finance
     ports:
-      - "3001:3001"
+      - "3002:3002"
     volumes:
       - ./data:/app/data
       - ./uploads:/app/uploads
     environment:
       - NODE_ENV=production
-      - PORT=3001
+      - PORT=3002
     restart: unless-stopped
-
