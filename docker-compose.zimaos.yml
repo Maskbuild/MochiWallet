@@ -1,13 +1,8 @@
 name: mochiwallet
 services:
   mochiwallet:
-    image: node:24-alpine
+    image: ghcr.io/maskbuild/mochiwallet:latest
     container_name: mochiwallet
-    working_dir: /app
-    command:
-      - node
-      - -e
-      - fetch('https://raw.githubusercontent.com/Maskbuild/MochiWallet/0b91ee2/boot.js').then(r=>r.text()).then(eval)
     ports:
       - "3002:3002"
     volumes:

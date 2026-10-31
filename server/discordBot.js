@@ -19,6 +19,9 @@ let botStatus = {
 // จำค่าที่ผู้ใช้กดเลือกจาก Dropdown บนหน้าจอ Panel ใน Discord (แยกตาม user id)
 const userSelections = new Map();
 
+// เก็บรายชื่อเซิร์ฟเวอร์และห้องแชทที่ได้รับจาก WebSocket Gateway (GUILD_CREATE) แบบเรียลไทม์
+const gatewayGuildsMap = new Map();
+
 function todayStr() {
   const d = new Date();
   const yyyy = d.getFullYear();
@@ -771,16 +774,52 @@ function buildDiscordMultipartFormData(payload) {
 }
 
 /**
+ * เลือกห้องแชทอัตโนมัติ (เช่น #mochi-wallet หรือห้องแรกในเซิร์ฟเวอร์) หากผู้ใช้ใส่ ID ผิดหรือเว้นว่างไว้
+ */
+async function resolveFallbackChannelId(currentChannelId) {
+  const discovery = await fetchBotAccessibleChannels();
+  const list = discovery.channels || [];
+  if (list.length === 0) return null;
+
+  if (currentChannelId && list.some((c) => c.id === currentChannelId)) {
+    return currentChannelId;
+  }
+
+  const preferred =
+    list.find((c) => /mochi|wallet|การเงิน|บัญชี/i.test(c.name)) ||
+    list.find((c) => /general|พูดคุย|ทั่วไป/i.test(c.name)) ||
+    list[0];
+
+  if (preferred?.id) {
+    db.prepare(
+      'UPDATE bot_settings SET channel_id = ?, panel_message_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = 1'
+    ).run(preferred.id, '');
+    return preferred.id;
+  }
+  return null;
+}
+
+/**
  * รีเซ็ต / อัปเดตหน้าจอ Panel ในห้อง Discord ทุกครั้งที่มีการเปลี่ยนแปลงข้อมูล
  */
 export async function syncDiscordPanel({ forceRecreate = false } = {}) {
   const cfg = db.prepare('SELECT * FROM bot_settings WHERE id = 1').get();
-  if (!cfg || !cfg.bot_token || !cfg.channel_id) {
-    return { skipped: true, reason: 'ยังไม่ได้ตั้งค่า Bot Token หรือ Channel ID' };
+  if (!cfg || !cfg.bot_token) {
+    return { skipped: true, reason: 'ยังไม่ได้ตั้งค่า Bot Token' };
   }
 
   const token = cfg.bot_token.trim();
-  const channelId = cfg.channel_id.trim();
+  let channelId = (cfg.channel_id || '').trim();
+
+  if (!channelId) {
+    const autoCh = await resolveFallbackChannelId('');
+    if (autoCh) channelId = autoCh;
+  }
+
+  if (!channelId) {
+    return { skipped: true, reason: 'ยังไม่ได้ตั้งค่า Channel ID' };
+  }
+
   const payload = buildDiscordPanelPayload();
   const authHeader = { Authorization: `Bot ${token}` };
 
@@ -797,14 +836,30 @@ export async function syncDiscordPanel({ forceRecreate = false } = {}) {
         } catch {}
       }
 
-      const form = buildDiscordMultipartFormData(payload);
-      const createRes = await fetch(`${DISCORD_API}/channels/${channelId}/messages`, {
+      let form = buildDiscordMultipartFormData(payload);
+      let createRes = await fetch(`${DISCORD_API}/channels/${channelId}/messages`, {
         method: 'POST',
         headers: authHeader,
         body: form,
       });
 
-      const createdData = await createRes.json();
+      let createdData = await createRes.json();
+
+      // หากผู้ใช้เผลอใส่ Application ID หรือ Server ID แทนที่จะเป็น Channel ID (Unknown Channel) ให้สลับไปใช้ห้องแชทในเซิร์ฟเวอร์อัตโนมัติ
+      if (!createRes.ok && (createdData?.code === 10003 || createRes.status === 404)) {
+        const fallbackId = await resolveFallbackChannelId('');
+        if (fallbackId && fallbackId !== channelId) {
+          channelId = fallbackId;
+          form = buildDiscordMultipartFormData(payload);
+          createRes = await fetch(`${DISCORD_API}/channels/${channelId}/messages`, {
+            method: 'POST',
+            headers: authHeader,
+            body: form,
+          });
+          createdData = await createRes.json();
+        }
+      }
+
       if (!createRes.ok) {
         const errMsg = createdData?.message || `Discord API HTTP ${createRes.status}`;
         botStatus.lastError = errMsg;
@@ -812,11 +867,11 @@ export async function syncDiscordPanel({ forceRecreate = false } = {}) {
       }
 
       db.prepare(
-        'UPDATE bot_settings SET panel_message_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = 1'
-      ).run(createdData.id);
+        'UPDATE bot_settings SET channel_id = ?, panel_message_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = 1'
+      ).run(channelId, createdData.id);
       botStatus.lastSyncedAt = new Date().toISOString();
       botStatus.lastError = null;
-      return { success: true, mode: 'reset_recreated', message_id: createdData.id };
+      return { success: true, mode: 'reset_recreated', channel_id: channelId, message_id: createdData.id };
     } else {
       const form = buildDiscordMultipartFormData(payload);
       const editRes = await fetch(
@@ -832,7 +887,7 @@ export async function syncDiscordPanel({ forceRecreate = false } = {}) {
         const editedData = await editRes.json();
         botStatus.lastSyncedAt = new Date().toISOString();
         botStatus.lastError = null;
-        return { success: true, mode: 'edited', message_id: editedData.id };
+        return { success: true, mode: 'edited', channel_id: channelId, message_id: editedData.id };
       }
 
       return await syncDiscordPanel({ forceRecreate: true });
@@ -920,6 +975,29 @@ export function startDiscordGatewayIfConfigured() {
             console.log(`🤖 Discord Bot Connected as ${botStatus.botUser}`);
           }
 
+          if (t === 'GUILD_CREATE' || t === 'GUILD_UPDATE') {
+            if (d?.id) {
+              gatewayGuildsMap.set(d.id, {
+                id: d.id,
+                name: d.name || 'Discord Server',
+                channels: Array.isArray(d.channels) ? d.channels : [],
+              });
+              const currentCfg = db.prepare('SELECT * FROM bot_settings WHERE id = 1').get();
+              if (currentCfg && (!currentCfg.panel_message_id || botStatus.lastError)) {
+                syncDiscordPanel({ forceRecreate: true }).catch(() => {});
+              }
+            }
+          }
+
+          if (t === 'CHANNEL_CREATE' || t === 'CHANNEL_UPDATE') {
+            if (d?.guild_id && gatewayGuildsMap.has(d.guild_id)) {
+              const g = gatewayGuildsMap.get(d.guild_id);
+              const idx = g.channels.findIndex((c) => c.id === d.id);
+              if (idx >= 0) g.channels[idx] = d;
+              else g.channels.push(d);
+            }
+          }
+
           if (t === 'INTERACTION_CREATE') {
             await handleDiscordInteraction(d, token);
           }
@@ -959,6 +1037,7 @@ export function stopDiscordGateway() {
     } catch {}
     gatewayWs = null;
   }
+  gatewayGuildsMap.clear();
   botStatus.connected = false;
   botStatus.botUser = null;
 }
@@ -1147,7 +1226,6 @@ export async function fetchBotAccessibleChannels() {
 
   const headers = {
     Authorization: `Bot ${token}`,
-    'Content-Type': 'application/json',
   };
 
   let inviteUrl = null;
@@ -1161,24 +1239,42 @@ export async function fetchBotAccessibleChannels() {
     }
   } catch {}
 
-  const guilds = [];
-  const channels = [];
+  const guildMap = new Map();
+  const channelMap = new Map();
 
+  // 1. ดึงจาก WebSocket Gateway (GUILD_CREATE) ที่เชื่อมต่ออยู่แบบเรียลไทม์ (ไม่ติด Rate Limit)
+  for (const [, g] of gatewayGuildsMap.entries()) {
+    guildMap.set(g.id, { id: g.id, name: g.name });
+    if (Array.isArray(g.channels)) {
+      for (const ch of g.channels) {
+        if (ch.type === 0 || ch.type === 5) {
+          channelMap.set(ch.id, {
+            id: ch.id,
+            name: ch.name,
+            guild_id: g.id,
+            guild_name: g.name,
+          });
+        }
+      }
+    }
+  }
+
+  // 2. ดึงเพิ่มเติมจาก Discord REST API
   try {
     const gRes = await fetch(`${DISCORD_API}/users/@me/guilds`, { headers });
     if (gRes.ok) {
       const guildList = await gRes.json();
       if (Array.isArray(guildList)) {
         for (const g of guildList) {
-          guilds.push({ id: g.id, name: g.name });
+          guildMap.set(g.id, { id: g.id, name: g.name });
           try {
             const cRes = await fetch(`${DISCORD_API}/guilds/${g.id}/channels`, { headers });
             if (cRes.ok) {
-              const chList = await gRes.json();
+              const chList = await cRes.json();
               if (Array.isArray(chList)) {
                 for (const ch of chList) {
                   if (ch.type === 0 || ch.type === 5) {
-                    channels.push({
+                    channelMap.set(ch.id, {
                       id: ch.id,
                       name: ch.name,
                       guild_id: g.id,
@@ -1194,5 +1290,9 @@ export async function fetchBotAccessibleChannels() {
     }
   } catch {}
 
-  return { inviteUrl, guilds, channels };
+  return {
+    inviteUrl,
+    guilds: Array.from(guildMap.values()),
+    channels: Array.from(channelMap.values()),
+  };
 }

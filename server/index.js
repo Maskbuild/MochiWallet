@@ -1112,16 +1112,21 @@ app.put('/api/bot-settings', async (req, res) => {
     );
 
     startDiscordGatewayIfConfigured();
-    const discovery = await fetchBotAccessibleChannels();
+
+    // รอ 900ms เพื่อให้ WebSocket (READY + GUILD_CREATE) รับรายชื่อเซิร์ฟเวอร์และห้องแชทมาครบก่อน
+    await new Promise((r) => setTimeout(r, 900));
 
     let syncResult = null;
     const updatedCfg = db.prepare('SELECT * FROM bot_settings WHERE id = 1').get();
-    if (updatedCfg.bot_token && updatedCfg.channel_id) {
+    if (updatedCfg.bot_token) {
       syncResult = await syncDiscordPanel({ forceRecreate: true });
     }
 
+    const finalCfg = db.prepare('SELECT * FROM bot_settings WHERE id = 1').get();
+    const discovery = await fetchBotAccessibleChannels();
+
     res.json({
-      settings: updatedCfg,
+      settings: finalCfg,
       status: getDiscordBotStatus(),
       panel: buildDiscordPanelPayload(),
       discovery,
