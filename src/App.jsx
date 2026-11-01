@@ -194,6 +194,7 @@ export default function App() {
                   accounts={accounts}
                   categories={categories}
                   shops={shops}
+                  memberships={memberships}
                   transactions={transactions}
                 />
               }

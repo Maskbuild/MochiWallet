@@ -1352,15 +1352,29 @@ const qrUploadSessions = new Map();
 
 function getLocalLanIps() {
   const nets = os.networkInterfaces();
-  const ips = [];
+  const primary = [];
+  const secondary = [];
   for (const name of Object.keys(nets)) {
+    const lowerName = name.toLowerCase();
+    const isVirtual =
+      lowerName.includes('zerotier') ||
+      lowerName.includes('tailscale') ||
+      lowerName.includes('vmware') ||
+      lowerName.includes('virtual') ||
+      lowerName.includes('vethernet') ||
+      lowerName.includes('wsl');
     for (const net of nets[name] || []) {
       if (net.family === 'IPv4' && !net.internal) {
-        ips.push(net.address);
+        if (net.address.startsWith('169.254.')) continue;
+        if (!isVirtual && net.address.startsWith('192.168.')) {
+          primary.push(net.address);
+        } else {
+          secondary.push(net.address);
+        }
       }
     }
   }
-  return ips;
+  return [...primary, ...secondary];
 }
 
 app.post('/api/qr-upload/session', (req, res) => {

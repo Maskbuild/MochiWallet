@@ -40,7 +40,8 @@ export function QrMobileUploadButton({
       const currentPort = window.location.port ? `:${window.location.port}` : '';
       if (currentHost === 'localhost' || currentHost === '127.0.0.1') {
         const preferredIp = ips.find((ip) => ip.startsWith('192.168.')) || ips[0] || currentHost;
-        setBaseOrigin(`${window.location.protocol}//${preferredIp}${currentPort}`);
+        const directPort = data.port ? `:${data.port}` : currentPort;
+        setBaseOrigin(`${window.location.protocol}//${preferredIp}${directPort}`);
       } else {
         setBaseOrigin(window.location.origin);
       }
@@ -151,15 +152,15 @@ export function QrMobileUploadButton({
             ) : qrMatrix ? (
               <div className="p-4 bg-white rounded-3xl border-4 border-pastel-pink/60 shadow-cozy inline-block">
                 <svg
-                  viewBox={`-2 -2 ${qrMatrix.length + 4} ${qrMatrix.length + 4}`}
-                  className="w-52 h-52 sm:w-56 sm:h-56"
+                  viewBox={`-4 -4 ${qrMatrix.length + 8} ${qrMatrix.length + 8}`}
+                  className="w-56 h-56 sm:w-60 sm:h-60"
                   shapeRendering="crispEdges"
                 >
                   <rect
-                    x="-2"
-                    y="-2"
-                    width={qrMatrix.length + 4}
-                    height={qrMatrix.length + 4}
+                    x="-4"
+                    y="-4"
+                    width={qrMatrix.length + 8}
+                    height={qrMatrix.length + 8}
                     fill="#FFFFFF"
                   />
                   {qrMatrix.map((row, rIdx) =>
@@ -171,7 +172,7 @@ export function QrMobileUploadButton({
                           y={rIdx}
                           width={1}
                           height={1}
-                          fill="#4A3B40"
+                          fill="#000000"
                         />
                       ) : null
                     )

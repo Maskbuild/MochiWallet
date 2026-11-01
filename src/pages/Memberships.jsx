@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Zap, PauseCircle, XCircle, PlayCircle, Trash2, Edit3 } from 'lucide-react';
 import {
+  CUTE_EMOJIS,
   CartoonEmojiBadge,
   formatCurrency,
 } from '../components/CuteStickers.jsx';
@@ -164,17 +165,19 @@ function MembershipFormFields({
 
       <div className="space-y-2">
         <label className="block text-xs font-bold text-pastel-cocoa">
-          🎨 {isEn ? 'Color & Icon' : 'สีการ์ด & ไอคอน'}
+          🎨 {isEn ? 'Color & App Emoji' : 'สีการ์ด & อีโมจิประจำแอป'}
         </label>
         <CuteColorPicker value={color} onChange={setColor} />
-        <div className="flex gap-1 pt-1">
-          {['🎀', '📺', '☁️', '💻', '🎬', '🎵', '🎮'].map((em) => (
+        <div className="flex flex-wrap gap-1.5 p-2 bg-cream-100 rounded-2xl border border-cream-200">
+          {CUTE_EMOJIS.map((em) => (
             <button
               key={em}
               type="button"
               onClick={() => setIconEmoji(em)}
-              className={`w-8 h-8 rounded-xl text-base ${
-                iconEmoji === em ? 'bg-pastel-pink border border-white' : ''
+              className={`w-8 h-8 rounded-xl text-base flex items-center justify-center transition-transform ${
+                iconEmoji === em
+                  ? 'bg-pastel-pink border-2 border-white shadow-sm scale-110'
+                  : 'hover:bg-cream-200'
               }`}
             >
               {em}

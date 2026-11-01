@@ -1,14 +1,5 @@
 import React, { useState, useMemo } from 'react';
 import {
-  TrendingUp,
-  TrendingDown,
-  Calendar,
-  ChevronLeft,
-  ChevronRight,
-  Wallet,
-  Award,
-  ShoppingBag,
-  Layers,
   Receipt,
   ArrowUpRight,
   ArrowDownRight,
@@ -87,9 +78,10 @@ export default function AnalyticsSummary({
   accounts = [],
   categories = [],
   shops = [],
+  memberships = [],
   transactions = [],
 }) {
-  const { lang } = useI18n();
+  const { lang, t } = useI18n();
   const isEn = lang === 'en';
   const todayStr = new Date().toISOString().slice(0, 10);
 
@@ -104,6 +96,28 @@ export default function AnalyticsSummary({
   const [showCumulativeLine, setShowCumulativeLine] = useState(false);
   const [hoverIndex, setHoverIndex] = useState(null);
   const [activeSlip, setActiveSlip] = useState(null);
+
+  // Maps to always resolve the exact Emoji, Image, and Color configured by the user in the app
+  const accountMap = useMemo(() => {
+    const m = new Map();
+    for (const acc of accounts) m.set(String(acc.id), acc);
+    return m;
+  }, [accounts]);
+
+  const categoryMap = useMemo(() => {
+    const m = new Map();
+    for (const cat of categories) m.set(String(cat.id), cat);
+    return m;
+  }, [categories]);
+
+  const shopMap = useMemo(() => {
+    const m = new Map();
+    for (const shp of shops) m.set(String(shp.id), shp);
+    return m;
+  }, [shops]);
+
+  const selectedAccountObj =
+    selectedAccountId !== 'all' ? accountMap.get(String(selectedAccountId)) : null;
 
   // Current & Previous Period Date Ranges
   const range = useMemo(
@@ -203,7 +217,6 @@ export default function AnalyticsSummary({
         totalDaysInPeriod = getDaysBetween(dates[0], dates[dates.length - 1]);
       }
     } else {
-      // Cap at today if current period extends into future so daily average is realistic
       const effectiveEnd = range.end > todayStr && range.start <= todayStr ? todayStr : range.end;
       totalDaysInPeriod = getDaysBetween(range.start, effectiveEnd);
     }
@@ -242,7 +255,6 @@ export default function AnalyticsSummary({
     const buckets = [];
 
     if (periodMode === 'day') {
-      // Group by individual transaction order on that day, or show day summary point
       const sorted = [...periodTxs].sort((a, b) => a.id - b.id);
       if (sorted.length === 0) {
         buckets.push({
@@ -297,7 +309,6 @@ export default function AnalyticsSummary({
       }
       buckets.push(...map.values());
     } else if (periodMode === 'quarter' || periodMode === 'half_year') {
-      // Group by week (7-day intervals) across the quarter or 6-month range for a rich line chart
       const startObj = new Date(range.start + 'T00:00:00');
       const endObj = new Date(range.end + 'T00:00:00');
       let cur = new Date(startObj);
@@ -370,7 +381,6 @@ export default function AnalyticsSummary({
       }
       buckets.push(...map.values());
     } else {
-      // 'all' mode -> group by YYYY-MM
       const map = new Map();
       const sorted = [...periodTxs].sort((a, b) =>
         (a.transaction_date || '').localeCompare(b.transaction_date || '')
@@ -410,7 +420,6 @@ export default function AnalyticsSummary({
       buckets.push(...map.values());
     }
 
-    // Compute running cumulative expense & net
     let cumExpense = 0;
     let cumIncome = 0;
     return buckets.map((b) => {
@@ -425,23 +434,47 @@ export default function AnalyticsSummary({
     });
   }, [periodTxs, periodMode, range, isEn, todayStr]);
 
-  // Detailed Category Breakdown (Expense or Income)
+  // Detailed Category Breakdown using exact Emojis, Images, and Colors configured in the app
   const categoryBreakdown = useMemo(() => {
     const map = new Map();
     let grandTotal = 0;
+
+    // Seed with categories configured by the user so their custom emojis/images always show
+    for (const c of categories) {
+      if (c.type !== catTab) continue;
+      map.set(String(c.id), {
+        id: String(c.id),
+        name: c.name,
+        emoji: c.icon_emoji || (catTab === 'income' ? '💰' : '🍱'),
+        color: c.color || (catTab === 'income' ? '#D4F5E9' : '#FFD6E0'),
+        image: c.image_path || null,
+        total: 0,
+        count: 0,
+        max: 0,
+        min: Infinity,
+      });
+    }
 
     for (const tx of periodTxs) {
       if (tx.type !== catTab) continue;
       const amt = Number(tx.amount || 0);
       grandTotal += amt;
-      const key = tx.category_id || 'uncategorized';
+      const key = tx.category_id ? String(tx.category_id) : 'uncategorized';
+      const catCfg = tx.category_id ? categoryMap.get(String(tx.category_id)) : null;
+
       if (!map.has(key)) {
         map.set(key, {
           id: key,
-          name: tx.category_name || (isEn ? 'Uncategorized' : 'ไม่ระบุหมวดหมู่'),
-          emoji: tx.category_emoji || (catTab === 'income' ? '💰' : '🍱'),
-          color: tx.category_color || (catTab === 'income' ? '#D4F5E9' : '#FFD6E0'),
-          image: tx.category_image || null,
+          name: catCfg?.name || tx.category_name || (isEn ? 'Uncategorized' : 'ไม่ระบุหมวดหมู่'),
+          emoji:
+            catCfg?.icon_emoji ||
+            tx.category_emoji ||
+            (catTab === 'income' ? '💰' : '🍱'),
+          color:
+            catCfg?.color ||
+            tx.category_color ||
+            (catTab === 'income' ? '#D4F5E9' : '#FFD6E0'),
+          image: catCfg?.image_path || tx.category_image || null,
           total: 0,
           count: 0,
           max: 0,
@@ -455,7 +488,11 @@ export default function AnalyticsSummary({
       if (amt < item.min) item.min = amt;
     }
 
-    return Array.from(map.values())
+    const allItems = Array.from(map.values());
+    const withTx = allItems.filter((item) => item.count > 0);
+    const targetList = withTx.length > 0 ? withTx : allItems;
+
+    return targetList
       .sort((a, b) => b.total - a.total)
       .map((item) => ({
         ...item,
@@ -463,9 +500,9 @@ export default function AnalyticsSummary({
         avg: item.count > 0 ? item.total / item.count : 0,
         pct: grandTotal > 0 ? (item.total / grandTotal) * 100 : 0,
       }));
-  }, [periodTxs, catTab, isEn]);
+  }, [periodTxs, categories, categoryMap, catTab, isEn]);
 
-  // Detailed Wallet Cashflow Breakdown
+  // Detailed Wallet Cashflow Breakdown using exact Wallet Emoji & Cover Image
   const walletBreakdown = useMemo(() => {
     const map = new Map();
     for (const acc of accounts) {
@@ -514,19 +551,20 @@ export default function AnalyticsSummary({
     }));
   }, [accounts, periodTxs]);
 
-  // Top Shops & Top 5 Largest Expenses
+  // Top Shops using exact Shop Emoji & Color configured in the app
   const topShops = useMemo(() => {
     const map = new Map();
     for (const tx of periodTxs) {
       if (tx.type !== 'expense' || !tx.shop_id) continue;
       const amt = Number(tx.amount || 0);
-      const key = tx.shop_id;
+      const key = String(tx.shop_id);
+      const shopCfg = shopMap.get(key);
       if (!map.has(key)) {
         map.set(key, {
           id: key,
-          name: tx.shop_name || 'Shop',
-          emoji: tx.shop_emoji || '🏪',
-          color: tx.shop_color || '#D6ECFF',
+          name: shopCfg?.name || tx.shop_name || 'Shop',
+          emoji: shopCfg?.icon_emoji || tx.shop_emoji || '🏪',
+          color: shopCfg?.color || tx.shop_color || '#D6ECFF',
           total: 0,
           count: 0,
         });
@@ -538,7 +576,7 @@ export default function AnalyticsSummary({
     return Array.from(map.values())
       .sort((a, b) => b.total - a.total)
       .slice(0, 6);
-  }, [periodTxs]);
+  }, [periodTxs, shopMap]);
 
   const topExpenses = useMemo(() => {
     return periodTxs
@@ -597,15 +635,20 @@ export default function AnalyticsSummary({
       {/* Page Header */}
       <div className="bg-gradient-to-r from-pastel-pink/70 via-cream-50 to-pastel-sky/60 border-2 border-white rounded-3xl p-5 sm:p-6 shadow-cozy flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3.5">
-          <CartoonEmojiBadge emoji="📈" color="#FFD6E0" size="lg" />
+          <CartoonEmojiBadge
+            emoji={selectedAccountObj?.emoji || categories[0]?.icon_emoji || '📈'}
+            color={selectedAccountObj?.color || categories[0]?.color || '#FFD6E0'}
+            image={selectedAccountObj?.cover_image || categories[0]?.image_path || null}
+            size="lg"
+          />
           <div>
             <span className="inline-block text-[11px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-white/80 text-pastel-cocoa border border-cream-200 mb-1">
               {isEn ? 'Deep-Dive Financial Analytics' : 'วิเคราะห์การเงินและกราฟแนวโน้มเชิงลึก'}
             </span>
             <h1 className="font-cute font-bold text-xl sm:text-2xl text-pastel-cocoa">
               {isEn
-                ? 'Financial Summary & Spending Line Chart 📊'
-                : 'สรุปยอดใช้จ่ายย้อนหลัง & กราฟเส้นแนวโน้ม 📊'}
+                ? 'Financial Summary & Spending Line Chart'
+                : 'สรุปยอดใช้จ่ายย้อนหลัง & กราฟเส้นแนวโน้ม'}
             </h1>
             <p className="text-xs text-pastel-muted mt-0.5">
               {isEn
@@ -618,7 +661,8 @@ export default function AnalyticsSummary({
         {/* Wallet Filter */}
         <div className="w-full sm:w-60">
           <label className="block text-[11px] font-bold text-pastel-cocoa mb-1">
-            👛 {isEn ? 'Filter by Wallet / Account:' : 'กรองตามกระเป๋าเงิน / บัญชี:'}
+            {selectedAccountObj?.emoji || accounts[0]?.emoji || '👛'}{' '}
+            {isEn ? 'Filter by Wallet / Account:' : 'กรองตามกระเป๋าเงิน / บัญชี:'}
           </label>
           <CuteSelect
             size="sm"
@@ -635,16 +679,16 @@ export default function AnalyticsSummary({
         </div>
       </div>
 
-      {/* Period Filter Bar (Identical to Overview + Quick Historical Stepper) */}
-      <div className="bg-cream-50 border-2 border-white rounded-3xl p-4 shadow-cozy flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-1.5">
+      {/* Period Filter Control Bar: Single horizontal line on desktop (no Today button, matches Overview) */}
+      <div className="bg-cream-50 border-2 border-white rounded-3xl p-4 shadow-cozy flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2.5 lg:flex-nowrap">
+        <div className="grid grid-cols-2 sm:flex sm:flex-wrap lg:flex-nowrap items-center gap-1.5 shrink-0">
           {[
-            { id: 'day', label: isEn ? '☀️ Daily' : '☀️ รายวัน' },
-            { id: 'month', label: isEn ? '🌙 Monthly' : '🌙 รายเดือน' },
-            { id: 'quarter', label: isEn ? '🍂 Quarterly (3M)' : '🍂 รายไตรมาส (3 เดือน)' },
-            { id: 'half_year', label: isEn ? '🌈 Half-Year (6M)' : '🌈 ราย 6 เดือน' },
-            { id: 'year', label: isEn ? '🎉 Yearly' : '🎉 รายปี' },
-            { id: 'all', label: isEn ? '🌟 All Time' : '🌟 ทั้งหมด' },
+            { id: 'day', label: t('periodDay') },
+            { id: 'month', label: t('periodMonth') },
+            { id: 'quarter', label: t('periodQuarter') },
+            { id: 'half_year', label: t('periodHalfYear') },
+            { id: 'year', label: t('periodYear') },
+            { id: 'all', label: t('periodAll') },
           ].map((p) => (
             <button
               key={p.id}
@@ -653,10 +697,10 @@ export default function AnalyticsSummary({
                 setPeriodMode(p.id);
                 setHoverIndex(null);
               }}
-              className={`px-3.5 py-2 rounded-2xl font-cute font-bold text-xs transition-all whitespace-nowrap ${
+              className={`px-3 py-2 rounded-2xl font-cute font-bold text-xs transition-all whitespace-nowrap ${
                 periodMode === p.id
-                  ? 'bg-pastel-pink text-pastel-cocoa shadow-sticker border-2 border-white scale-105'
-                  : 'bg-cream-100 text-pastel-muted hover:bg-cream-200'
+                  ? 'bg-pastel-pink text-pastel-cocoa shadow-sticker border-2 border-white'
+                  : 'bg-cream-100 text-pastel-muted hover:bg-cream-200 border-2 border-transparent'
               }`}
             >
               {p.label}
@@ -664,49 +708,23 @@ export default function AnalyticsSummary({
           ))}
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 text-xs lg:ml-auto shrink-0">
           {periodMode !== 'all' && (
             <>
-              <div className="flex items-center gap-1 bg-cream-100 p-1 rounded-2xl border border-cream-300">
-                <button
-                  type="button"
-                  onClick={() => setRefDate((prev) => shiftReferenceDate(prev, periodMode, -1))}
-                  className="p-1.5 rounded-xl hover:bg-white text-pastel-cocoa transition-colors"
-                  title={isEn ? 'Previous Period' : 'ย้อนกลับงวดก่อนหน้า'}
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setRefDate(todayStr)}
-                  className="px-2.5 py-1 rounded-xl text-[11px] font-cute font-bold bg-white text-pastel-cocoa hover:bg-pastel-pink/50 transition-colors"
-                >
-                  {isEn ? 'Today' : 'วันนี้'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setRefDate((prev) => shiftReferenceDate(prev, periodMode, 1))}
-                  className="p-1.5 rounded-xl hover:bg-white text-pastel-cocoa transition-colors"
-                  title={isEn ? 'Next Period' : 'งวดถัดไป'}
-                >
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-              </div>
-
-              <div className="flex items-center gap-1.5">
-                <Calendar className="w-4 h-4 text-pastel-muted shrink-0" />
-                <CuteDatePicker
-                  size="sm"
-                  align="right"
-                  value={refDate}
-                  onChange={setRefDate}
-                  className="w-40"
-                />
-              </div>
+              <span className="text-pastel-muted font-medium whitespace-nowrap">
+                {t('refDateLabel')}
+              </span>
+              <CuteDatePicker
+                size="sm"
+                align="right"
+                value={refDate}
+                onChange={setRefDate}
+                className="w-36 sm:w-40"
+              />
             </>
           )}
 
-          <span className="text-xs bg-pastel-butter px-3.5 py-2 rounded-2xl font-cute font-bold text-pastel-cocoa border border-white shadow-sm whitespace-nowrap">
+          <span className="bg-pastel-butter/80 px-3 py-1.5 rounded-2xl font-cute font-bold text-xs text-pastel-cocoa border border-white shadow-sm whitespace-nowrap">
             📌 {range.label}
           </span>
         </div>
@@ -861,12 +879,10 @@ export default function AnalyticsSummary({
               🔥 {isEn ? 'Peak Spending Day' : 'วันที่ใช้จ่ายสูงสุดในงวดนี้'}
             </p>
             {kpis.peakDate ? (
-              <>
-                <p className="font-cute font-bold text-xl text-rose-700 mt-1">
-                  ฿{formatCurrency(kpis.peakAmount)}{' '}
-                  <span className="text-xs font-bold text-pastel-cocoa">({kpis.peakDate})</span>
-                </p>
-              </>
+              <p className="font-cute font-bold text-xl text-rose-700 mt-1">
+                ฿{formatCurrency(kpis.peakAmount)}{' '}
+                <span className="text-xs font-bold text-pastel-cocoa">({kpis.peakDate})</span>
+              </p>
             ) : (
               <p className="font-cute font-bold text-base text-pastel-muted mt-1">
                 {isEn ? 'No expenses yet' : 'ยังไม่มีรายจ่าย'}
@@ -876,7 +892,10 @@ export default function AnalyticsSummary({
           <div className="mt-3 pt-2.5 border-t border-white/60 text-[11px] text-pastel-cocoa/80 truncate">
             {kpis.maxExpenseTx ? (
               <span>
-                🏆 {isEn ? 'Max Bill:' : 'บิลใหญ่สุด:'} <b>{kpis.maxExpenseTx.title}</b> (฿
+                {categoryMap.get(String(kpis.maxExpenseTx.category_id))?.icon_emoji ||
+                  kpis.maxExpenseTx.category_emoji ||
+                  '🏆'}{' '}
+                {isEn ? 'Max Bill:' : 'บิลใหญ่สุด:'} <b>{kpis.maxExpenseTx.title}</b> (฿
                 {formatCurrency(kpis.maxExpenseTx.amount)})
               </span>
             ) : (
@@ -1202,8 +1221,8 @@ export default function AnalyticsSummary({
               </h3>
               <p className="text-xs text-pastel-muted">
                 {isEn
-                  ? 'Shows total amount, transaction count, average per bill, max bill, and share %'
-                  : 'แสดงจำนวนครั้งที่ใช้ ค่าเฉลี่ยต่อครั้ง บิลสูงสุด และสัดส่วนเปอร์เซ็นต์ของแต่ละหมวด'}
+                  ? 'Uses the custom emojis, images, and colors you configured for each category'
+                  : 'อ้างอิงอีโมจิ รูปภาพ และสีประจำหมวดหมู่ที่คุณตั้งค่าไว้ในแอป'}
               </p>
             </div>
 
@@ -1236,21 +1255,18 @@ export default function AnalyticsSummary({
           {categoryBreakdown.length === 0 ? (
             <div className="text-center py-12 text-pastel-muted text-sm">
               {isEn
-                ? 'No transactions in this category type for the selected period 🌸'
+                ? 'No categories or transactions found for the selected period 🌸'
                 : 'ยังไม่มีรายการของหมวดหมู่นี้ในช่วงเวลาที่เลือกจ้า 🌸'}
             </div>
           ) : (
             <div className="space-y-3">
-              {categoryBreakdown.map((cat, idx) => (
+              {categoryBreakdown.map((cat) => (
                 <div
                   key={cat.id}
                   className="p-3.5 rounded-2xl bg-cream-100/80 border border-cream-200 space-y-2"
                 >
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3 min-w-0">
-                      <span className="text-xs font-cute font-bold text-pastel-muted w-5">
-                        #{idx + 1}
-                      </span>
                       <CartoonEmojiBadge
                         emoji={cat.emoji}
                         color={cat.color}
@@ -1283,13 +1299,14 @@ export default function AnalyticsSummary({
                     </div>
                   </div>
 
-                  {/* Progress Bar */}
+                  {/* Progress Bar colored with the Category's configured color */}
                   <div className="w-full h-2.5 bg-white rounded-full overflow-hidden border border-cream-200">
                     <div
                       className="h-full rounded-full transition-all duration-500"
                       style={{
-                        width: `${Math.max(3, cat.pct)}%`,
-                        backgroundColor: catTab === 'expense' ? '#FF758F' : '#52B788',
+                        width: `${cat.total > 0 ? Math.max(4, cat.pct) : 0}%`,
+                        backgroundColor:
+                          cat.color || (catTab === 'expense' ? '#FF758F' : '#52B788'),
                       }}
                     />
                   </div>
@@ -1299,12 +1316,12 @@ export default function AnalyticsSummary({
           )}
         </div>
 
-        {/* Right 5 cols: Wallet Cashflow + Top Shops + Top 5 Bills */}
+        {/* Right 5 cols: Wallet Cashflow + Top 5 Bills + Top Shops + Active Memberships */}
         <div className="lg:col-span-5 space-y-6">
           {/* Wallet Cashflow Breakdown */}
           <div className="bg-cream-50 border-2 border-white rounded-3xl p-5 shadow-cozy space-y-3">
             <h3 className="font-cute font-bold text-lg text-pastel-cocoa">
-              👛{' '}
+              {accounts[0]?.emoji || '👛'}{' '}
               {isEn
                 ? 'Cashflow by Wallet / Account'
                 : 'สรุปเงินเข้า-ออกแยกตามกระเป๋าเงิน'}
@@ -1317,8 +1334,13 @@ export default function AnalyticsSummary({
                   className="p-3 rounded-2xl border border-white shadow-sm space-y-1.5"
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="text-lg">{w.emoji}</span>
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <CartoonEmojiBadge
+                        emoji={w.emoji}
+                        color={w.color}
+                        image={w.cover_image}
+                        size="sm"
+                      />
                       <span className="font-cute font-bold text-sm text-pastel-cocoa truncate">
                         {w.name}
                       </span>
@@ -1363,7 +1385,7 @@ export default function AnalyticsSummary({
             </div>
           </div>
 
-          {/* Top 5 Largest Expenses in Period */}
+          {/* Top 5 Largest Expenses in Period (Using User's Category/Wallet Emoji & Image) */}
           <div className="bg-cream-50 border-2 border-white rounded-3xl p-5 shadow-cozy space-y-3">
             <h3 className="font-cute font-bold text-lg text-pastel-cocoa">
               🏆{' '}
@@ -1377,57 +1399,76 @@ export default function AnalyticsSummary({
               </p>
             ) : (
               <div className="space-y-2">
-                {topExpenses.map((tx, i) => (
-                  <div
-                    key={tx.id}
-                    className="flex items-center justify-between gap-2 p-2.5 rounded-2xl bg-cream-100/90 border border-cream-200"
-                  >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <span className="w-6 h-6 rounded-full bg-pastel-pink text-pastel-cocoa font-cute font-bold text-xs flex items-center justify-center shrink-0">
-                        {i + 1}
-                      </span>
-                      <div className="min-w-0">
-                        <p className="font-cute font-bold text-xs text-pastel-cocoa truncate">
-                          {tx.title}
-                        </p>
-                        <p className="text-[10px] text-pastel-muted truncate">
-                          📅 {tx.transaction_date} • {tx.category_emoji} {tx.category_name || '-'}
-                        </p>
+                {topExpenses.map((tx) => {
+                  const catCfg = tx.category_id ? categoryMap.get(String(tx.category_id)) : null;
+                  const accCfg = tx.account_id ? accountMap.get(String(tx.account_id)) : null;
+                  const shpCfg = tx.shop_id ? shopMap.get(String(tx.shop_id)) : null;
+
+                  const catEmoji = catCfg?.icon_emoji || tx.category_emoji || '🍱';
+                  const catColor = catCfg?.color || tx.category_color || '#FFD6E0';
+                  const catImage = catCfg?.image_path || tx.category_image || null;
+                  const catName = catCfg?.name || tx.category_name || '-';
+                  const accEmoji = accCfg?.emoji || tx.account_emoji || '👛';
+                  const accName = accCfg?.name || tx.account_name || '';
+
+                  return (
+                    <div
+                      key={tx.id}
+                      className="flex items-center justify-between gap-2 p-2.5 rounded-2xl bg-cream-100/90 border border-cream-200"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <CartoonEmojiBadge
+                          emoji={catEmoji}
+                          color={catColor}
+                          image={catImage}
+                          size="sm"
+                        />
+                        <div className="min-w-0">
+                          <p className="font-cute font-bold text-xs text-pastel-cocoa truncate">
+                            {tx.title}
+                          </p>
+                          <p className="text-[10px] text-pastel-muted truncate">
+                            📅 {tx.transaction_date} • {catEmoji} {catName}
+                            {accName ? ` • ${accEmoji} ${accName}` : ''}
+                            {shpCfg ? ` • ${shpCfg.icon_emoji} ${shpCfg.name}` : ''}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {(tx.slip_image || tx.attachment_image) && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setActiveSlip({
+                                url: tx.slip_image || tx.attachment_image,
+                                title: tx.title,
+                                amount: tx.amount,
+                                date: tx.transaction_date,
+                              })
+                            }
+                            className="p-1.5 rounded-xl bg-pastel-butter text-pastel-cocoa hover:bg-amber-200"
+                            title={isEn ? 'View Slip/Photo' : 'ดูรูป/สลิป'}
+                          >
+                            <Receipt className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        <span className="font-cute font-bold text-sm text-rose-600">
+                          -฿{formatCurrency(tx.amount)}
+                        </span>
                       </div>
                     </div>
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      {(tx.slip_image || tx.attachment_image) && (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setActiveSlip({
-                              url: tx.slip_image || tx.attachment_image,
-                              title: tx.title,
-                              amount: tx.amount,
-                              date: tx.transaction_date,
-                            })
-                          }
-                          className="p-1.5 rounded-xl bg-pastel-butter text-pastel-cocoa hover:bg-amber-200"
-                          title={isEn ? 'View Slip/Photo' : 'ดูรูป/สลิป'}
-                        >
-                          <Receipt className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                      <span className="font-cute font-bold text-sm text-rose-600">
-                        -฿{formatCurrency(tx.amount)}
-                      </span>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
 
-          {/* Top Shops */}
+          {/* Top Shops using User's Shop Emoji & Color */}
           {topShops.length > 0 && (
             <div className="bg-cream-50 border-2 border-white rounded-3xl p-5 shadow-cozy space-y-3">
               <h3 className="font-cute font-bold text-lg text-pastel-cocoa">
-                🏪 {isEn ? 'Top Shops / Merchants' : 'ร้านค้าที่ใช้จ่ายสูงสุดในช่วงนี้'}
+                {shops[0]?.icon_emoji || '🏪'}{' '}
+                {isEn ? 'Top Shops / Merchants' : 'ร้านค้าที่ใช้จ่ายสูงสุดในช่วงนี้'}
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 {topShops.map((s) => (
@@ -1437,7 +1478,7 @@ export default function AnalyticsSummary({
                     className="p-3 rounded-2xl border border-white shadow-sm flex items-center justify-between gap-2"
                   >
                     <div className="flex items-center gap-2 min-w-0">
-                      <span className="text-lg">{s.emoji}</span>
+                      <CartoonEmojiBadge emoji={s.emoji} color={s.color} size="sm" />
                       <div className="min-w-0">
                         <p className="font-cute font-bold text-xs text-pastel-cocoa truncate">
                           {s.name}
@@ -1452,6 +1493,34 @@ export default function AnalyticsSummary({
                     </span>
                   </div>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {/* Active Apps / Memberships using User's Configured App Emoji & Color */}
+          {memberships.length > 0 && (
+            <div className="bg-cream-50 border-2 border-white rounded-3xl p-5 shadow-cozy space-y-3">
+              <h3 className="font-cute font-bold text-lg text-pastel-cocoa">
+                {memberships[0]?.icon_emoji || '🎀'}{' '}
+                {isEn ? 'Configured Apps & Memberships' : 'แอปและบริการสมาชิกที่ตั้งค่าไว้'}
+              </h3>
+              <div className="flex flex-wrap gap-2">
+                {memberships.map((m) => {
+                  const catCfg = m.category_id ? categoryMap.get(String(m.category_id)) : null;
+                  const appEmoji = m.icon_emoji || catCfg?.icon_emoji || '🎀';
+                  const appColor = m.color || catCfg?.color || '#FFD6E0';
+                  return (
+                    <div
+                      key={m.id}
+                      style={{ backgroundColor: appColor }}
+                      className="inline-flex items-center gap-2 px-3 py-1.5 rounded-2xl border border-white shadow-sm text-xs text-pastel-cocoa"
+                    >
+                      <span className="text-base">{appEmoji}</span>
+                      <span className="font-cute font-bold">{m.name}</span>
+                      <span className="font-bold">฿{formatCurrency(m.amount)}</span>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
