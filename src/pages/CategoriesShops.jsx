@@ -243,11 +243,6 @@ export default function CategoriesShops({
                 ? 'Categories (with Reusable Image Gallery) & Shops'
                 : 'จัดการหมวดหมู่ (พร้อมคลังจำรูปใช้ซ้ำ) & ระบบร้านค้า'}
             </h1>
-            <p className="text-xs sm:text-sm text-pastel-muted">
-              {isEn
-                ? 'Uploaded category images are remembered in your gallery for instant reuse, plus manage favorite shops'
-                : 'อัปโหลดรูปใส่ประเภทหมวดหมู่แล้วระบบจะจำไว้ให้กดเลือกใช้ซ้ำได้ทันที และตั้งค่าร้านค้าประจำไว้กดเลือกตอนจดรายการ'}
-            </p>
           </div>
         </div>
 

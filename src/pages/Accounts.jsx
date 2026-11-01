@@ -539,11 +539,6 @@ export default function Accounts({ accounts, onRefresh }) {
             <h1 className="font-cute font-bold text-2xl text-pastel-cocoa">
               {isEn ? 'Wallets & Savings Accounts' : 'กระเป๋าเงิน & บัญชีเงินเก็บ'}
             </h1>
-            <p className="text-xs sm:text-sm text-pastel-muted">
-              {isEn
-                ? 'Customize colors, upload GIF/transparent covers, and enable optional sub-account pockets'
-                : 'ปรับแต่งสีพาสเทล อัปโหลดรูปหน้าปก (GIF/PNG โปร่งใส) และเลือกเปิดใช้หมวดย่อยในบัญชีได้ตามต้องการ'}
-            </p>
           </div>
         </div>
         <div className="bg-pastel-butter/80 px-4 py-2.5 rounded-2xl border-2 border-white shadow-sticker ml-auto">

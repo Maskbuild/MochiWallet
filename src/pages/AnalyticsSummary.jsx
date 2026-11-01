@@ -650,11 +650,6 @@ export default function AnalyticsSummary({
                 ? 'Financial Summary & Spending Line Chart'
                 : 'สรุปยอดใช้จ่ายย้อนหลัง & กราฟเส้นแนวโน้ม'}
             </h1>
-            <p className="text-xs text-pastel-muted mt-0.5">
-              {isEn
-                ? 'Inspect historical spending trends, compare against previous periods, and view detailed breakdowns'
-                : 'เลือกดูสรุปเงินย้อนหลังได้เหมือนหน้าภาพรวม พร้อมกราฟเส้น เปรียบเทียบงวดก่อนหน้า และตารางเจาะลึกทุกหมวดหมู่'}
-            </p>
           </div>
         </div>
 

@@ -286,11 +286,6 @@ export default function Transactions({
                 ? 'Income, Expense & Account Transfers'
                 : 'บันทึกรายรับ-รายจ่าย & โอนย้ายบัญชี'}
             </h1>
-            <p className="text-xs sm:text-sm text-pastel-muted">
-              {isEn
-                ? 'Supports extra photos + hidden slips, bullet notes ("- " auto-bullet), auto date, and max 10 items per page'
-                : 'รองรับการแนบรูปภาพประกอบแยกจากสลิป ตั้งวันที่อัตโนมัติ จดโน้ตแบบหัวข้อย่อย (- เว้นวรรค) และแสดงตารางหน้าละไม่เกิน 10 รายการ'}
-            </p>
           </div>
         </div>
       </div>

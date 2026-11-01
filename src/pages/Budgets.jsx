@@ -472,11 +472,6 @@ export default function Budgets({ budgets, categories, onRefresh }) {
                 ? 'Budgets & Trip Expense Limits'
                 : 'ตั้งงบประมาณ (Budget) & งบทริปท่องเที่ยว'}
             </h1>
-            <p className="text-xs sm:text-sm text-pastel-muted">
-              {isEn
-                ? 'Set overall budgets, single-category budgets, or overall budgets with sub-category breakdowns by Month, Year, or Trip'
-                : 'ตั้งได้ทั้งงบรวมทั้งหมด งบแยกตามหมวดหมู่ หรือตั้งงบรวมแล้วซอยย่อยแต่ละหมวดหมู่ด้านใน เลือกรายเดือน รายปี หรือช่วงเวลาทริปได้ตามใจชอบ'}
-            </p>
           </div>
         </div>
       </div>

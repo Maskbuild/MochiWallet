@@ -397,11 +397,6 @@ export default function Memberships({
                 ? 'Memberships & Recurring Billing'
                 : 'ระบบ Membership & บริการตัดเงินตามรอบ'}
             </h1>
-            <p className="text-xs sm:text-sm text-pastel-muted">
-              {isEn
-                ? 'Configure billing cycles by Hour, Day, Month, or Year. Deduct charges anytime or mark as unused/cancelled'
-                : 'ตั้งรอบการหักเงินได้ทั้งแบบ ชั่วโมง / วัน / เดือน / ปี พร้อมปุ่มกดบันทึกตัดยอด หรือกดว่าไม่ได้ใช้แล้ว / ยกเลิกสมาชิกได้ทันที'}
-            </p>
           </div>
         </div>
       </div>

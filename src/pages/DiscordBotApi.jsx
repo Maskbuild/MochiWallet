@@ -420,11 +420,6 @@ async function getWalletSummaryForOtherWeb() {
                 ? 'Discord Interactive Panel Bot & External Web API'
                 : 'ระบบบอท Discord แบบหน้าจอ Panel & ระบบ API เชื่อมต่อเว็บอื่น'}
             </h1>
-            <p className="text-xs sm:text-sm text-pastel-muted">
-              {isEn
-                ? 'Displays a single live panel in Discord with GitHub Heatmap, Total Balance, Income/Expense, 3 action buttons, and External REST API for other websites.'
-                : 'แสดงหน้าจอกระดานสรุปใน Discord (ตาราง GitHub + ยอดเงินทั้งหมด + รายรับรายจ่าย) ที่รีเซ็ตตัวเองอัตโนมัติทุกครั้งที่มีการอัปเดต พร้อมปุ่มกด 3 ตัว และระบบ API ให้เว็บอื่นส่งข้อความเข้ามาได้'}
-            </p>
           </div>
         </div>
 
