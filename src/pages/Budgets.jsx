@@ -67,10 +67,12 @@ function BudgetFormFields({
         <label className="block text-xs font-bold text-pastel-cocoa mb-1">
           {isEn ? 'Budget Period *' : 'รูปแบบช่วงเวลางบประมาณ *'}
         </label>
-        <div className="grid grid-cols-3 gap-2 bg-cream-100 p-1.5 rounded-2xl border border-cream-200">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 bg-cream-100 p-1.5 rounded-2xl border border-cream-200">
           {[
-            { id: 'monthly', label: isEn ? '🌙 Monthly' : '🌙 รายเดือน' },
-            { id: 'yearly', label: isEn ? '🎉 Yearly' : '🎉 รายปี' },
+            { id: 'recurring_monthly', label: isEn ? '🔄 Every Month' : '🔄 ทุกเดือน' },
+            { id: 'recurring_yearly', label: isEn ? '🔄 Every Year' : '🔄 ทุกปี' },
+            { id: 'monthly', label: isEn ? '🌙 Monthly' : '🌙 เฉพาะเดือน' },
+            { id: 'yearly', label: isEn ? '🎉 Yearly' : '🎉 เฉพาะปี' },
             { id: 'trip', label: isEn ? '✈️ Trip / Range' : '✈️ ทริป/ช่วงเวลา' },
           ].map((tab) => (
             <button
@@ -80,7 +82,7 @@ function BudgetFormFields({
               className={`py-2 rounded-xl font-cute font-bold text-xs transition-all ${
                 periodType === tab.id
                   ? 'bg-pastel-lavender text-pastel-cocoa shadow-sticker border border-white'
-                  : 'text-pastel-muted'
+                  : 'text-pastel-muted hover:bg-cream-200'
               }`}
             >
               {tab.label}
@@ -156,6 +158,26 @@ function BudgetFormFields({
             className="w-full px-3.5 py-2.5 rounded-2xl bg-cream-100 border border-cream-300 text-sm font-bold"
           />
         </div>
+
+        {periodType === 'recurring_monthly' && (
+          <div className="bg-pastel-mint/30 p-2.5 rounded-2xl border border-pastel-mint text-xs text-pastel-cocoa flex items-center gap-2">
+            <span className="text-base">🔄</span>
+            <div>
+              <p className="font-bold">{isEn ? 'Renews automatically every month' : 'งบประจำ ตัดรอบใหม่ทุกเดือน'}</p>
+              <p className="text-[11px] text-pastel-muted">{isEn ? 'Counts expenses for the current active month automatically' : 'ระบบจะนับยอดใช้จ่ายของเดือนปัจจุบันให้อัตโนมัติในทุกๆ เดือน'}</p>
+            </div>
+          </div>
+        )}
+
+        {periodType === 'recurring_yearly' && (
+          <div className="bg-pastel-butter/40 p-2.5 rounded-2xl border border-amber-300 text-xs text-pastel-cocoa flex items-center gap-2">
+            <span className="text-base">🔄</span>
+            <div>
+              <p className="font-bold">{isEn ? 'Renews automatically every year' : 'งบประจำ ตัดรอบใหม่ทุกปี'}</p>
+              <p className="text-[11px] text-pastel-muted">{isEn ? 'Counts expenses for the current active year automatically' : 'ระบบจะนับยอดใช้จ่ายของปีปัจจุบันให้อัตโนมัติในทุกๆ ปี'}</p>
+            </div>
+          </div>
+        )}
 
         {periodType === 'monthly' && (
           <div>
@@ -576,10 +598,14 @@ export default function Budgets({ budgets, categories, onRefresh }) {
                     <div>
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-cream-200 text-pastel-cocoa">
-                          {b.period_type === 'monthly'
-                            ? `🌙 ${isEn ? 'Monthly' : 'รายเดือน'} (${b.month_str})`
+                          {b.period_type === 'recurring_monthly'
+                            ? `🔄 ${isEn ? 'Every Month' : 'ทุกเดือน'}`
+                            : b.period_type === 'recurring_yearly'
+                            ? `🔄 ${isEn ? 'Every Year' : 'ทุกปี'}`
+                            : b.period_type === 'monthly'
+                            ? `🌙 ${isEn ? 'Monthly' : 'เฉพาะเดือน'} (${b.month_str})`
                             : b.period_type === 'yearly'
-                            ? `🎉 ${isEn ? 'Yearly' : 'รายปี'} (${b.year_str})`
+                            ? `🎉 ${isEn ? 'Yearly' : 'เฉพาะปี'} (${b.year_str})`
                             : `✈️ ${isEn ? 'Trip' : 'ทริป'} (${b.start_date} - ${b.end_date})`}
                         </span>
                         <span className="text-[11px] font-medium px-2.5 py-0.5 rounded-full bg-pastel-butter/70 text-pastel-cocoa">

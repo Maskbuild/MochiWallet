@@ -688,7 +688,16 @@ app.get('/api/budgets', (_req, res) => {
     let startDate = '0000-01-01';
     let endDate = '9999-12-31';
 
-    if (b.period_type === 'monthly' && b.month_str) {
+    const currentYearMonth = todayStr().slice(0, 7);
+    const currentYear = todayStr().slice(0, 4);
+
+    if (b.period_type === 'recurring_monthly') {
+      startDate = `${currentYearMonth}-01`;
+      endDate = `${currentYearMonth}-31`;
+    } else if (b.period_type === 'recurring_yearly') {
+      startDate = `${currentYear}-01-01`;
+      endDate = `${currentYear}-12-31`;
+    } else if (b.period_type === 'monthly' && b.month_str) {
       startDate = `${b.month_str}-01`;
       endDate = `${b.month_str}-31`;
     } else if (b.period_type === 'yearly' && b.year_str) {

@@ -92,7 +92,7 @@ export function initDb() {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
       budget_scope TEXT NOT NULL DEFAULT 'overall', -- 'overall' | 'category'
-      period_type TEXT NOT NULL DEFAULT 'monthly', -- 'monthly' | 'yearly' | 'trip'
+      period_type TEXT NOT NULL DEFAULT 'monthly', -- 'monthly' | 'yearly' | 'trip' | 'recurring_monthly' | 'recurring_yearly'
       total_limit REAL NOT NULL DEFAULT 0,
       category_id INTEGER REFERENCES categories(id) ON DELETE SET NULL,
       start_date TEXT,
