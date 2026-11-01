@@ -250,22 +250,20 @@ export default function CategoriesShops({
           <button
             type="button"
             onClick={() => setActiveTab('categories')}
-            className={`px-4 py-2 rounded-xl font-cute font-bold text-xs sm:text-sm transition-all ${
-              activeTab === 'categories'
+            className={`px-4 py-2 rounded-xl font-cute font-bold text-xs sm:text-sm transition-all ${activeTab === 'categories'
                 ? 'bg-pastel-pink text-pastel-cocoa shadow-sticker border border-white'
                 : 'text-pastel-muted'
-            }`}
+              }`}
           >
             🏷️ {isEn ? `Categories & Gallery (${categories.length})` : `หมวดหมู่ & คลังรูปใช้ซ้ำ (${categories.length})`}
           </button>
           <button
             type="button"
             onClick={() => setActiveTab('shops')}
-            className={`px-4 py-2 rounded-xl font-cute font-bold text-xs sm:text-sm transition-all ${
-              activeTab === 'shops'
+            className={`px-4 py-2 rounded-xl font-cute font-bold text-xs sm:text-sm transition-all ${activeTab === 'shops'
                 ? 'bg-pastel-sky text-pastel-cocoa shadow-sticker border border-white'
                 : 'text-pastel-muted'
-            }`}
+              }`}
           >
             🏪 {isEn ? `Shops (${shops.length})` : `ระบบร้านค้า (${shops.length})`}
           </button>
@@ -288,11 +286,10 @@ export default function CategoriesShops({
                     setCatType('expense');
                     setParentId('');
                   }}
-                  className={`py-2 rounded-xl font-cute font-bold text-xs ${
-                    catType === 'expense'
+                  className={`py-2 rounded-xl font-cute font-bold text-xs ${catType === 'expense'
                       ? 'bg-pastel-pink text-pastel-cocoa shadow-sticker border border-white'
                       : 'text-pastel-muted'
-                  }`}
+                    }`}
                 >
                   {isEn ? '🧁 Expense Category' : '🧁 หมวดรายจ่าย'}
                 </button>
@@ -302,11 +299,10 @@ export default function CategoriesShops({
                     setCatType('income');
                     setParentId('');
                   }}
-                  className={`py-2 rounded-xl font-cute font-bold text-xs ${
-                    catType === 'income'
+                  className={`py-2 rounded-xl font-cute font-bold text-xs ${catType === 'income'
                       ? 'bg-pastel-mint text-pastel-cocoa shadow-sticker border border-white'
                       : 'text-pastel-muted'
-                  }`}
+                    }`}
                 >
                   {isEn ? '💰 Income Category' : '💰 หมวดรายรับ'}
                 </button>
@@ -411,11 +407,10 @@ export default function CategoriesShops({
                                 setCatFile(null);
                                 if (catFileRef.current) catFileRef.current.value = '';
                               }}
-                              className={`w-14 h-14 rounded-2xl p-1 bg-white border-2 flex items-center justify-center overflow-hidden transition-transform ${
-                                isSelected
+                              className={`w-14 h-14 rounded-2xl p-1 bg-white border-2 flex items-center justify-center overflow-hidden transition-transform ${isSelected
                                   ? 'border-pink-500 scale-105 shadow-md ring-2 ring-pastel-pink'
                                   : 'border-cream-300 hover:scale-105'
-                              }`}
+                                }`}
                               title={img.name}
                             >
                               <img
@@ -450,11 +445,10 @@ export default function CategoriesShops({
                       key={em}
                       type="button"
                       onClick={() => setCatEmoji(em)}
-                      className={`w-8 h-8 rounded-xl text-base flex items-center justify-center transition-transform ${
-                        catEmoji === em
+                      className={`w-8 h-8 rounded-xl text-base flex items-center justify-center transition-transform ${catEmoji === em
                           ? 'bg-pastel-pink border-2 border-white shadow-sm scale-110'
                           : 'hover:bg-cream-200'
-                      }`}
+                        }`}
                     >
                       {em}
                     </button>
@@ -486,17 +480,16 @@ export default function CategoriesShops({
                         ? '🧁 Expense Categories'
                         : '🧁 หมวดหมู่รายจ่าย'
                       : isEn
-                      ? '💰 Income Categories'
-                      : '💰 หมวดหมู่รายรับ'}{' '}
+                        ? '💰 Income Categories'
+                        : '💰 หมวดหมู่รายรับ'}{' '}
                     ({list.length})
                   </h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {list.map((c) => (
                       <div
                         key={c.id}
-                        className={`flex items-center justify-between p-3 rounded-2xl bg-cream-100/90 border border-cream-200 ${
-                          c.parent_id ? 'ml-4 border-l-4 border-l-pastel-pink' : ''
-                        }`}
+                        className={`flex items-center justify-between p-3 rounded-2xl bg-cream-100/90 border border-cream-200 ${c.parent_id ? 'ml-4 border-l-4 border-l-pastel-pink' : ''
+                          }`}
                       >
                         <div className="flex items-center gap-3 min-w-0">
                           <CartoonEmojiBadge
@@ -516,8 +509,8 @@ export default function CategoriesShops({
                                   ? '🖼️ Custom Image'
                                   : '🖼️ ใช้รูปภาพที่อัปโหลด'
                                 : isEn
-                                ? '✨ Cartoon Emoji'
-                                : '✨ อีโมจิการ์ตูน'}
+                                  ? '✨ Cartoon Emoji'
+                                  : '✨ อีโมจิการ์ตูน'}
                             </p>
                           </div>
                         </div>
@@ -598,11 +591,10 @@ export default function CategoriesShops({
                       key={em}
                       type="button"
                       onClick={() => setShopEmoji(em)}
-                      className={`w-8 h-8 rounded-xl text-base flex items-center justify-center transition-transform ${
-                        shopEmoji === em
+                      className={`w-8 h-8 rounded-xl text-base flex items-center justify-center transition-transform ${shopEmoji === em
                           ? 'bg-pastel-sky border-2 border-white shadow-sm scale-110'
                           : 'hover:bg-cream-200'
-                      }`}
+                        }`}
                     >
                       {em}
                     </button>
@@ -649,8 +641,8 @@ export default function CategoriesShops({
                         {s.category_name
                           ? `${isEn ? 'Default:' : 'หมวดเริ่มต้น:'} ${s.category_emoji} ${s.category_name}`
                           : isEn
-                          ? 'No default category'
-                          : 'ไม่ได้ระบุหมวดเริ่มต้น'}
+                            ? 'No default category'
+                            : 'ไม่ได้ระบุหมวดเริ่มต้น'}
                       </p>
                       <FormattedNote text={s.note} className="mt-1 text-pastel-cocoa/80" />
                     </div>
@@ -747,11 +739,10 @@ export default function CategoriesShops({
                       setEditCatFile(null);
                       setEditClearImg(false);
                     }}
-                    className={`w-12 h-12 rounded-xl p-1 bg-white border-2 ${
-                      editReusedPath === img.file_path && !editCatFile
+                    className={`w-12 h-12 rounded-xl p-1 bg-white border-2 ${editReusedPath === img.file_path && !editCatFile
                         ? 'border-pink-500 scale-105'
                         : 'border-cream-300'
-                    }`}
+                      }`}
                   >
                     <img src={img.file_path} alt={img.name} className="w-full h-full object-contain" />
                   </button>
@@ -771,9 +762,8 @@ export default function CategoriesShops({
                   key={em}
                   type="button"
                   onClick={() => setEditCatEmoji(em)}
-                  className={`w-8 h-8 rounded-xl text-base ${
-                    editCatEmoji === em ? 'bg-pastel-pink border border-white scale-110' : ''
-                  }`}
+                  className={`w-8 h-8 rounded-xl text-base ${editCatEmoji === em ? 'bg-pastel-pink border border-white scale-110' : ''
+                    }`}
                 >
                   {em}
                 </button>
@@ -833,9 +823,8 @@ export default function CategoriesShops({
                   key={em}
                   type="button"
                   onClick={() => setEditShopEmoji(em)}
-                  className={`w-8 h-8 rounded-xl text-base ${
-                    editShopEmoji === em ? 'bg-pastel-sky border border-white scale-110' : ''
-                  }`}
+                  className={`w-8 h-8 rounded-xl text-base ${editShopEmoji === em ? 'bg-pastel-sky border border-white scale-110' : ''
+                    }`}
                 >
                   {em}
                 </button>
