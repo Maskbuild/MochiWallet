@@ -8,6 +8,7 @@ import CuteSelect from '../components/CuteSelect.jsx';
 import CuteColorPicker from '../components/CuteColorPicker.jsx';
 import CuteNoteEditor, { FormattedNote } from '../components/CuteNoteEditor.jsx';
 import CuteModal from '../components/CuteModal.jsx';
+import { QrMobileUploadButton } from '../components/QrMobileUploadModal.jsx';
 import { useI18n } from '../i18n.jsx';
 
 export default function CategoriesShops({
@@ -348,14 +349,26 @@ export default function CategoriesShops({
               </div>
 
               <div className="bg-pastel-butter/40 border-2 border-dashed border-amber-300 rounded-2xl p-3.5 space-y-2">
-                <label className="block text-xs font-cute font-bold text-pastel-cocoa flex items-center gap-1.5">
-                  <ImageIcon className="w-4 h-4 shrink-0" />
-                  <span>
-                    {isEn
-                      ? 'Upload Category Image (Saved to gallery for reuse)'
-                      : 'อัปโหลดรูปภาพประจำหมวดหมู่ (ระบบจะจดจำไว้ให้ใช้ซ้ำอัตโนมัติ)'}
-                  </span>
-                </label>
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <label className="text-xs font-cute font-bold text-pastel-cocoa flex items-center gap-1.5">
+                    <ImageIcon className="w-4 h-4 shrink-0" />
+                    <span>
+                      {isEn
+                        ? 'Upload Category Image (Saved to gallery)'
+                        : 'อัปโหลดรูปประจำหมวดหมู่ (จำไว้ใช้ซ้ำอัตโนมัติ)'}
+                    </span>
+                  </label>
+                  <QrMobileUploadButton
+                    target="category"
+                    isEn={isEn}
+                    label={isEn ? '📱 Scan QR from Phone' : '📱 สแกนอัปโหลดจากมือถือ'}
+                    onFileReceived={(fileObj) => {
+                      setCatFile(fileObj);
+                      setReusedImagePath('');
+                      onRefresh?.();
+                    }}
+                  />
+                </div>
                 <input
                   ref={catFileRef}
                   type="file"
@@ -369,6 +382,11 @@ export default function CategoriesShops({
                   }}
                   className="block w-full text-xs text-pastel-muted file:mr-3 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-pastel-butter file:text-pastel-cocoa hover:file:bg-amber-200 cursor-pointer"
                 />
+                {catFile && (
+                  <p className="text-[11px] text-emerald-700 font-medium truncate">
+                    ✅ {catFile.name}
+                  </p>
+                )}
 
                 <div className="pt-2 border-t border-amber-200/70">
                   <p className="text-[11px] font-bold text-pastel-cocoa mb-1.5 flex items-center gap-1">
@@ -689,9 +707,22 @@ export default function CategoriesShops({
           </div>
 
           <div className="bg-pastel-butter/40 border border-amber-300 rounded-2xl p-3 space-y-2">
-            <label className="block text-xs font-cute font-bold text-pastel-cocoa">
-              🖼️ {isEn ? 'Update or Reuse Category Image' : 'อัปเดตหรือเลือกรูปหมวดหมู่จากคลังใช้ซ้ำ'}
-            </label>
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <label className="text-xs font-cute font-bold text-pastel-cocoa">
+                🖼️ {isEn ? 'Update or Reuse Category Image' : 'อัปเดตหรือเลือกรูปหมวดหมู่'}
+              </label>
+              <QrMobileUploadButton
+                target="category"
+                isEn={isEn}
+                label={isEn ? '📱 Scan QR' : '📱 สแกนจากมือถือ'}
+                onFileReceived={(fileObj) => {
+                  setEditCatFile(fileObj);
+                  setEditReusedPath('');
+                  setEditClearImg(false);
+                  onRefresh?.();
+                }}
+              />
+            </div>
             <input
               type="file"
               accept="image/*"
@@ -705,6 +736,11 @@ export default function CategoriesShops({
               }}
               className="block w-full text-xs"
             />
+            {editCatFile && (
+              <p className="text-[11px] text-emerald-700 font-medium truncate">
+                ✅ {editCatFile.name}
+              </p>
+            )}
             {categoryImages.length > 0 && (
               <div className="flex flex-wrap gap-2 pt-1">
                 {categoryImages.map((img) => (

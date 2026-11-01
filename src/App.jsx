@@ -3,6 +3,7 @@ import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { MochiMascot, formatCurrency } from './components/CuteStickers.jsx';
 import { useI18n } from './i18n.jsx';
 import Dashboard from './pages/Dashboard.jsx';
+import AnalyticsSummary from './pages/AnalyticsSummary.jsx';
 import Transactions from './pages/Transactions.jsx';
 import Accounts from './pages/Accounts.jsx';
 import Budgets from './pages/Budgets.jsx';
@@ -27,6 +28,7 @@ export default function App() {
 
   const navItems = [
     { to: '/', emoji: '🏠', label: t('navOverview') },
+    { to: '/analytics', emoji: '📈', label: t('navAnalytics') },
     { to: '/transactions', emoji: '💸', label: t('navTransactions') },
     { to: '/accounts', emoji: '👛', label: t('navAccounts') },
     { to: '/budgets', emoji: '🎯', label: t('navBudgets') },
@@ -182,6 +184,17 @@ export default function App() {
                   budgets={budgets}
                   memberships={memberships}
                   heatmapData={heatmapData}
+                />
+              }
+            />
+            <Route
+              path="/analytics"
+              element={
+                <AnalyticsSummary
+                  accounts={accounts}
+                  categories={categories}
+                  shops={shops}
+                  transactions={transactions}
                 />
               }
             />

@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import path from 'path';
 import fs from 'fs';
+import os from 'os';
 import { fileURLToPath } from 'url';
 import db, { initDb, resetAllData } from './db.js';
 import {
@@ -18,6 +19,8 @@ import {
 import {
   uploadAccountCover,
   uploadCategoryImage,
+  uploadSlipImage,
+  uploadAttachmentImage,
   uploadTransactionFiles,
   uploadsDirectory,
 } from './upload.js';
@@ -1340,6 +1343,337 @@ app.post('/api/system/reset-data', (_req, res) => {
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
+});
+
+// ==========================================
+// 9. QR CODE MOBILE IMAGE UPLOAD SYSTEM (สแกน QR ส่งรูปจากมือถือเข้าคอมแบบเรียลไทม์)
+// ==========================================
+const qrUploadSessions = new Map();
+
+function getLocalLanIps() {
+  const nets = os.networkInterfaces();
+  const ips = [];
+  for (const name of Object.keys(nets)) {
+    for (const net of nets[name] || []) {
+      if (net.family === 'IPv4' && !net.internal) {
+        ips.push(net.address);
+      }
+    }
+  }
+  return ips;
+}
+
+app.post('/api/qr-upload/session', (req, res) => {
+  const { target = 'slip' } = req.body || {};
+  const now = Date.now();
+  // ล้าง session เก่าที่เกิน 30 นาที
+  for (const [k, v] of qrUploadSessions.entries()) {
+    if (now - v.createdAt > 30 * 60 * 1000) qrUploadSessions.delete(k);
+  }
+
+  const sessionId = `qr_${now.toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
+  qrUploadSessions.set(sessionId, {
+    id: sessionId,
+    target,
+    status: 'waiting',
+    fileUrl: null,
+    fileName: null,
+    mimeType: null,
+    createdAt: now,
+  });
+
+  res.json({
+    sessionId,
+    target,
+    lanIps: getLocalLanIps(),
+    port: PORT,
+  });
+});
+
+app.get('/api/qr-upload/session/:id', (req, res) => {
+  const session = qrUploadSessions.get(req.params.id);
+  if (!session) {
+    return res.status(404).json({ error: 'Session expired or not found' });
+  }
+  res.json(session);
+});
+
+app.post('/api/qr-upload/session/:id/upload', (req, res) => {
+  const session = qrUploadSessions.get(req.params.id);
+  if (!session) {
+    return res.status(404).json({ error: 'รหัส QR นี้หมดอายุแล้ว กรุณากดเปิด QR ใหม่บนหน้าจอคอมครับ' });
+  }
+
+  const uploaderMap = {
+    account: uploadAccountCover,
+    category: uploadCategoryImage,
+    attachment: uploadAttachmentImage,
+    slip: uploadSlipImage,
+  };
+  const folderMap = {
+    account: 'accounts',
+    category: 'categories',
+    attachment: 'attachments',
+    slip: 'slips',
+  };
+
+  const uploader = (uploaderMap[session.target] || uploadSlipImage).single('image');
+  uploader(req, res, (err) => {
+    if (err) {
+      return res.status(400).json({ error: err.message });
+    }
+    if (!req.file) {
+      return res.status(400).json({ error: 'กรุณาเลือกรูปภาพก่อนกดส่ง' });
+    }
+
+    const folder = folderMap[session.target] || 'slips';
+    const fileUrl = `/uploads/${folder}/${req.file.filename}`;
+    session.status = 'uploaded';
+    session.fileUrl = fileUrl;
+    session.fileName = req.file.originalname || req.file.filename;
+    session.mimeType = req.file.mimetype || 'image/png';
+
+    // ถ้าเป็นการอัปโหลดเข้าคลังรูปหมวดหมู่ ให้บันทึกเข้า category_images ด้วย
+    if (session.target === 'category') {
+      try {
+        db.prepare('INSERT INTO category_images (name, file_path) VALUES (?, ?)').run(
+          session.fileName,
+          fileUrl
+        );
+      } catch {}
+    }
+
+    res.json({
+      success: true,
+      fileUrl,
+      fileName: session.fileName,
+      mimeType: session.mimeType,
+    });
+  });
+});
+
+// หน้าเว็บสำหรับโทรศัพท์มือถือเมื่อสแกน QR Code
+app.get('/m/upload/:id', (req, res) => {
+  const session = qrUploadSessions.get(req.params.id);
+  const labelMap = {
+    slip: '🧾 แนบรูปสลิปโอนเงิน',
+    attachment: '🖼️ แนบรูปภาพประกอบรายการ',
+    account: '👛 อัปโหลดรูปปกบัญชี',
+    category: '🏷️ อัปโหลดรูปหมวดหมู่',
+  };
+  const targetLabel = session ? labelMap[session.target] || '📸 อัปโหลดรูปภาพ' : '⚠️ QR Code หมดอายุ';
+
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.send(`<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>MochiWallet 🍡 ส่งรูปเข้าคอม</title>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Mitr:wght@400;500;600&family=Prompt:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: 'Prompt', sans-serif;
+      background: radial-gradient(circle at top, #FFF5F8 0%, #FFFDF9 55%, #F2FBF7 100%);
+      color: #5C4B51;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .card {
+      width: 100%;
+      max-width: 420px;
+      background: #FFFDF9;
+      border: 3px solid #FFFFFF;
+      border-radius: 28px;
+      padding: 24px 20px;
+      box-shadow: 0 12px 30px rgba(92, 75, 81, 0.08);
+      text-align: center;
+    }
+    .badge {
+      display: inline-block;
+      background: #FFD6E0;
+      color: #5C4B51;
+      font-family: 'Mitr', sans-serif;
+      font-size: 13px;
+      padding: 5px 14px;
+      border-radius: 999px;
+      margin-bottom: 10px;
+      border: 2px solid #FFF;
+    }
+    h1 {
+      font-family: 'Mitr', sans-serif;
+      font-size: 21px;
+      margin: 4px 0 6px;
+    }
+    p {
+      font-size: 13px;
+      color: #8E7C82;
+      margin: 0 0 18px;
+    }
+    .btn-group {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    .pick-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 16px 10px;
+      border-radius: 22px;
+      border: 2px dashed #F4ACB7;
+      background: #FFF5F8;
+      color: #5C4B51;
+      font-family: 'Mitr', sans-serif;
+      font-size: 13px;
+      cursor: pointer;
+      transition: transform 0.15s;
+    }
+    .pick-btn.gallery {
+      border-color: #95D5B2;
+      background: #F2FBF7;
+    }
+    .pick-btn:active { transform: scale(0.97); }
+    .pick-btn span.icon { font-size: 28px; }
+    #preview-box {
+      display: none;
+      margin-bottom: 16px;
+      background: #FFF;
+      padding: 10px;
+      border-radius: 20px;
+      border: 2px solid #F3EAE0;
+    }
+    #preview-img {
+      width: 100%;
+      max-height: 260px;
+      object-fit: contain;
+      border-radius: 14px;
+    }
+    .send-btn {
+      width: 100%;
+      padding: 14px;
+      border-radius: 20px;
+      border: 2px solid #FFF;
+      background: #FFCAD4;
+      color: #5C4B51;
+      font-family: 'Mitr', sans-serif;
+      font-size: 16px;
+      font-weight: 600;
+      box-shadow: 0 4px 0 #F4ACB7;
+      cursor: pointer;
+      display: none;
+    }
+    .send-btn:disabled { opacity: 0.6; }
+    .status {
+      margin-top: 14px;
+      padding: 12px;
+      border-radius: 18px;
+      font-size: 13px;
+      font-weight: 600;
+      display: none;
+    }
+    .status.ok { display: block; background: #D8F3DC; color: #1B4332; }
+    .status.err { display: block; background: #FFE3E3; color: #9B2226; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div style="font-size:44px;margin-bottom:4px;">🐰📱</div>
+    <div class="badge">${targetLabel}</div>
+    <h1>ส่งรูปเข้าคอมพิวเตอร์</h1>
+    <p>เลือกรูปสลิปหรือถ่ายภาพจากมือถือ แล้วกดส่งเข้าหน้าจอคอมได้ทันที!</p>
+
+    ${
+      !session
+        ? '<div class="status err">⚠️ QR Code นี้หมดอายุแล้ว กรุณากดเปิด QR Code บนหน้าจอคอมใหม่อีกครั้งครับ</div>'
+        : `
+    <div class="btn-group">
+      <label class="pick-btn">
+        <span class="icon">📸</span>
+        <span>ถ่ายรูปกล้อง</span>
+        <input type="file" id="cam-input" accept="image/*" capture="environment" style="display:none" />
+      </label>
+      <label class="pick-btn gallery">
+        <span class="icon">🖼️</span>
+        <span>เลือกจากอัลบั้ม</span>
+        <input type="file" id="gal-input" accept="image/*" style="display:none" />
+      </label>
+    </div>
+
+    <div id="preview-box">
+      <img id="preview-img" alt="Preview" />
+      <div id="file-name" style="font-size:11px;color:#8E7C82;margin-top:6px;"></div>
+    </div>
+
+    <button id="send-btn" class="send-btn">✨ ส่งรูปเข้าหน้าจอคอมทันที</button>
+    <div id="status-box" class="status"></div>
+    `
+    }
+  </div>
+
+  <script>
+    const camInput = document.getElementById('cam-input');
+    const galInput = document.getElementById('gal-input');
+    const previewBox = document.getElementById('preview-box');
+    const previewImg = document.getElementById('preview-img');
+    const fileNameEl = document.getElementById('file-name');
+    const sendBtn = document.getElementById('send-btn');
+    const statusBox = document.getElementById('status-box');
+    let selectedFile = null;
+
+    function onPick(file) {
+      if (!file) return;
+      selectedFile = file;
+      previewImg.src = URL.createObjectURL(file);
+      fileNameEl.textContent = file.name + ' (' + Math.round(file.size / 1024) + ' KB)';
+      previewBox.style.display = 'block';
+      sendBtn.style.display = 'block';
+      statusBox.className = 'status';
+      statusBox.style.display = 'none';
+    }
+
+    if (camInput) camInput.addEventListener('change', (e) => onPick(e.target.files[0]));
+    if (galInput) galInput.addEventListener('change', (e) => onPick(e.target.files[0]));
+
+    if (sendBtn) {
+      sendBtn.addEventListener('click', async () => {
+        if (!selectedFile) return;
+        sendBtn.disabled = true;
+        sendBtn.textContent = '⏳ กำลังส่งรูปเข้าคอม...';
+        try {
+          const fd = new FormData();
+          fd.append('image', selectedFile);
+          const res = await fetch('/api/qr-upload/session/${req.params.id}/upload', {
+            method: 'POST',
+            body: fd
+          });
+          const data = await res.json();
+          if (res.ok && data.success) {
+            sendBtn.style.display = 'none';
+            statusBox.className = 'status ok';
+            statusBox.textContent = '🎉 ส่งรูปเข้าหน้าจอคอมพิวเตอร์สำเร็จแล้ว! ดูที่หน้าจอคอมได้เลยครับ';
+          } else {
+            throw new Error(data.error || 'อัปโหลดไม่สำเร็จ');
+          }
+        } catch (err) {
+          sendBtn.disabled = false;
+          sendBtn.textContent = '✨ ลองส่งใหม่อีกครั้ง';
+          statusBox.className = 'status err';
+          statusBox.textContent = '⚠️ ' + err.message;
+        }
+      });
+    }
+  </script>
+</body>
+</html>`);
 });
 
 // เริ่มเชื่อมต่อ Discord Bot Gateway อัตโนมัติถ้าตั้งค่า Token ไว้แล้ว

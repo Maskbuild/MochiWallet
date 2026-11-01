@@ -9,6 +9,7 @@ import CuteSelect from '../components/CuteSelect.jsx';
 import CuteColorPicker from '../components/CuteColorPicker.jsx';
 import CuteNoteEditor, { FormattedNote } from '../components/CuteNoteEditor.jsx';
 import CuteModal from '../components/CuteModal.jsx';
+import { QrMobileUploadButton } from '../components/QrMobileUploadModal.jsx';
 import { useI18n } from '../i18n.jsx';
 
 function AccountFormFields({
@@ -263,14 +264,22 @@ function AccountFormFields({
 
       {/* Cover Image Upload */}
       <div className="bg-cream-100/90 border-2 border-dashed border-pastel-pink rounded-2xl p-3.5 space-y-2">
-        <label className="block text-xs font-cute font-bold text-pastel-cocoa flex items-center gap-1.5">
-          <ImageIcon className="w-4 h-4 shrink-0" />
-          <span>
-            {isEn
-              ? 'Account Cover Image (Supports animated GIF & transparent PNG/WebP/SVG)'
-              : 'รูปหน้าปกบัญชี (รองรับ GIF เคลื่อนไหว และภาพพื้นหลังโปร่งใสทุกสกุล)'}
-          </span>
-        </label>
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <label className="text-xs font-cute font-bold text-pastel-cocoa flex items-center gap-1.5">
+            <ImageIcon className="w-4 h-4 shrink-0" />
+            <span>
+              {isEn
+                ? 'Account Cover Image (GIF / Transparent PNG)'
+                : 'รูปหน้าปกบัญชี (รองรับ GIF / PNG โปร่งใส)'}
+            </span>
+          </label>
+          <QrMobileUploadButton
+            target="account"
+            isEn={isEn}
+            label={isEn ? '📱 Scan QR from Phone' : '📱 สแกนอัปโหลดจากมือถือ'}
+            onFileReceived={(fileObj) => onFileChange({ target: { files: [fileObj] } })}
+          />
+        </div>
         <p className="text-[11px] text-pastel-muted">
           {isEn
             ? '* Account images are exclusive to this wallet and not stored in the reusable gallery'

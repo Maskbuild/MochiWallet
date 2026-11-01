@@ -62,4 +62,5 @@ export const uploadTransactionFiles = multer({
 export const uploadAccountCover = createUploader('accounts');
 export const uploadCategoryImage = createUploader('categories');
 export const uploadSlipImage = createUploader('slips');
+export const uploadAttachmentImage = createUploader('attachments');
 export const uploadsDirectory = uploadsRoot;

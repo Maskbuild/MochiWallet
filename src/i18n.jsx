@@ -4,6 +4,7 @@ const translations = {
   th: {
     appSubtitle: 'สมุดการเงินพาสเทลแสนอบอุ่น',
     navOverview: 'หน้าภาพรวม (Overview)',
+    navAnalytics: 'สรุปการใช้จ่าย & กราฟเส้น',
     navTransactions: 'รายรับ-รายจ่าย & โอนเงิน',
     navAccounts: 'กระเป๋าเงิน & บัญชี',
     navBudgets: 'ตั้งงบ Budget & ทริป',
@@ -73,6 +74,7 @@ const translations = {
   en: {
     appSubtitle: 'Cozy Pastel Finance Tracker',
     navOverview: 'Overview Dashboard',
+    navAnalytics: 'Analytics & Line Chart',
     navTransactions: 'Income, Expense & Transfer',
     navAccounts: 'Wallets & Accounts',
     navBudgets: 'Budgets & Trips',

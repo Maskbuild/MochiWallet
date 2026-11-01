@@ -6,6 +6,7 @@ import CuteDatePicker from '../components/CuteDatePicker.jsx';
 import CuteNoteEditor, { FormattedNote } from '../components/CuteNoteEditor.jsx';
 import CuteModal from '../components/CuteModal.jsx';
 import SlipModal from '../components/SlipModal.jsx';
+import { QrMobileUploadButton } from '../components/QrMobileUploadModal.jsx';
 import { computeDateRange } from './Dashboard.jsx';
 import { useI18n } from '../i18n.jsx';
 
@@ -495,11 +496,19 @@ export default function Transactions({
 
             {/* Extra Photo Upload (Separate from Slip!) */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="bg-pastel-pink/30 border-2 border-dashed border-pastel-pink rounded-2xl p-3">
-                <label className="block text-xs font-cute font-bold text-pastel-cocoa mb-1 flex items-center gap-1">
-                  <ImageIcon className="w-3.5 h-3.5" />
-                  <span>{isEn ? 'Photo Attachment (Food/Item)' : 'รูปภาพประกอบบันทึก (นอกจากสลิป)'}</span>
-                </label>
+              <div className="bg-pastel-pink/30 border-2 border-dashed border-pastel-pink rounded-2xl p-3 space-y-2">
+                <div className="flex items-center justify-between gap-1.5 flex-wrap">
+                  <label className="text-xs font-cute font-bold text-pastel-cocoa flex items-center gap-1">
+                    <ImageIcon className="w-3.5 h-3.5" />
+                    <span>{isEn ? 'Photo Attachment' : 'รูปภาพประกอบบันทึก'}</span>
+                  </label>
+                  <QrMobileUploadButton
+                    target="attachment"
+                    isEn={isEn}
+                    label={isEn ? '📱 Scan QR' : '📱 สแกนจากมือถือ'}
+                    onFileReceived={(fileObj) => setAttachmentFile(fileObj)}
+                  />
+                </div>
                 <input
                   ref={attachInputRef}
                   type="file"
@@ -514,10 +523,18 @@ export default function Transactions({
                 )}
               </div>
 
-              <div className="bg-pastel-butter/40 border-2 border-dashed border-amber-300/80 rounded-2xl p-3">
-                <label className="block text-xs font-cute font-bold text-pastel-cocoa mb-1 flex items-center gap-1">
-                  🧾 <span>{isEn ? 'Transfer Slip (Hidden)' : 'แนบสลิป (ซ่อนไว้กดดู)'}</span>
-                </label>
+              <div className="bg-pastel-butter/40 border-2 border-dashed border-amber-300/80 rounded-2xl p-3 space-y-2">
+                <div className="flex items-center justify-between gap-1.5 flex-wrap">
+                  <label className="text-xs font-cute font-bold text-pastel-cocoa flex items-center gap-1">
+                    🧾 <span>{isEn ? 'Transfer Slip' : 'แนบสลิป (ซ่อนไว้กดดู)'}</span>
+                  </label>
+                  <QrMobileUploadButton
+                    target="slip"
+                    isEn={isEn}
+                    label={isEn ? '📱 Scan QR' : '📱 สแกนสลิป'}
+                    onFileReceived={(fileObj) => setSlipFile(fileObj)}
+                  />
+                </div>
                 <input
                   ref={slipInputRef}
                   type="file"
@@ -985,27 +1002,53 @@ export default function Transactions({
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="bg-pastel-pink/30 border border-pastel-pink rounded-2xl p-2.5">
-              <label className="block text-[11px] font-bold text-pastel-cocoa mb-1">
-                🖼️ {isEn ? 'Replace Photo Attachment' : 'อัปเดตรูปภาพประกอบ'}
-              </label>
+            <div className="bg-pastel-pink/30 border border-pastel-pink rounded-2xl p-2.5 space-y-1.5">
+              <div className="flex items-center justify-between gap-1 flex-wrap">
+                <label className="block text-[11px] font-bold text-pastel-cocoa">
+                  🖼️ {isEn ? 'Replace Photo Attachment' : 'อัปเดตรูปภาพประกอบ'}
+                </label>
+                <QrMobileUploadButton
+                  target="attachment"
+                  isEn={isEn}
+                  label={isEn ? '📱 Scan QR' : '📱 สแกน QR'}
+                  onFileReceived={(fileObj) => setEditAttachFile(fileObj)}
+                />
+              </div>
               <input
                 type="file"
                 accept="image/*"
                 onChange={(e) => setEditAttachFile(e.target.files?.[0] || null)}
                 className="block w-full text-[11px]"
               />
+              {editAttachFile && (
+                <p className="text-[10px] text-emerald-700 font-medium truncate">
+                  ✅ {editAttachFile.name}
+                </p>
+              )}
             </div>
-            <div className="bg-pastel-butter/40 border border-amber-300 rounded-2xl p-2.5">
-              <label className="block text-[11px] font-bold text-pastel-cocoa mb-1">
-                🧾 {isEn ? 'Replace Slip Image' : 'อัปเดตรูปสลิป'}
-              </label>
+            <div className="bg-pastel-butter/40 border border-amber-300 rounded-2xl p-2.5 space-y-1.5">
+              <div className="flex items-center justify-between gap-1 flex-wrap">
+                <label className="block text-[11px] font-bold text-pastel-cocoa">
+                  🧾 {isEn ? 'Replace Slip Image' : 'อัปเดตรูปสลิป'}
+                </label>
+                <QrMobileUploadButton
+                  target="slip"
+                  isEn={isEn}
+                  label={isEn ? '📱 Scan QR' : '📱 สแกนสลิป'}
+                  onFileReceived={(fileObj) => setEditSlipFile(fileObj)}
+                />
+              </div>
               <input
                 type="file"
                 accept="image/*"
                 onChange={(e) => setEditSlipFile(e.target.files?.[0] || null)}
                 className="block w-full text-[11px]"
               />
+              {editSlipFile && (
+                <p className="text-[10px] text-emerald-700 font-medium truncate">
+                  ✅ {editSlipFile.name}
+                </p>
+              )}
             </div>
           </div>
 
