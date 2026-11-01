@@ -12,6 +12,24 @@ import CuteNoteEditor, { FormattedNote } from '../components/CuteNoteEditor.jsx'
 import CuteModal from '../components/CuteModal.jsx';
 import { useI18n } from '../i18n.jsx';
 
+export function calcMonthlyEquivalent(amount, cycleUnit, cycleInterval) {
+  const amt = parseFloat(amount) || 0;
+  const interval = Math.max(1, parseInt(cycleInterval, 10) || 1);
+  if (cycleUnit === 'month') {
+    return amt / interval;
+  }
+  if (cycleUnit === 'year') {
+    return amt / (interval * 12);
+  }
+  if (cycleUnit === 'day') {
+    return (amt / interval) * 30.4375;
+  }
+  if (cycleUnit === 'hour') {
+    return 0;
+  }
+  return amt;
+}
+
 function MembershipFormFields({
   isEn,
   name,
@@ -122,6 +140,41 @@ function MembershipFormFields({
           />
         </div>
       </div>
+
+      {/* Live Calculated Monthly Expense Helper Box */}
+      {Number(amount) > 0 && (
+        <div className="bg-pastel-pink/35 border-2 border-white rounded-2xl p-3 flex items-center justify-between text-xs text-pastel-cocoa shadow-sm">
+          <div className="flex items-center gap-2">
+            <span className="text-base">💡</span>
+            <div>
+              <p className="font-cute font-bold text-pastel-cocoa">
+                {isEn ? 'Calculated Monthly Expense:' : 'คำนวณเงินที่เสียเฉลี่ยต่อเดือน:'}
+              </p>
+              <p className="text-[11px] text-pastel-muted">
+                {cycleUnit === 'hour'
+                  ? isEn ? 'Hourly on-demand service' : 'คิดตามชั่วโมงจริงเมื่อใช้งาน'
+                  : isEn
+                  ? `~฿${formatCurrency(calcMonthlyEquivalent(amount, cycleUnit, cycleInterval) * 12)} / year`
+                  : `คิดเป็นประมาณ ~฿${formatCurrency(calcMonthlyEquivalent(amount, cycleUnit, cycleInterval) * 12)} / ปี`}
+              </p>
+            </div>
+          </div>
+          <div className="text-right">
+            {cycleUnit === 'hour' ? (
+              <span className="font-cute font-bold text-amber-800 text-sm">
+                ฿{formatCurrency(amount)} / {isEn ? 'hour' : 'ชม.'}
+              </span>
+            ) : (
+              <span className="font-cute font-bold text-pink-700 text-base">
+                ~฿{formatCurrency(calcMonthlyEquivalent(amount, cycleUnit, cycleInterval))}{' '}
+                <span className="text-xs font-normal text-pastel-muted">
+                  {isEn ? '/ mo' : '/ เดือน'}
+                </span>
+              </span>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 gap-3">
         <div>
@@ -386,6 +439,27 @@ export default function Memberships({
     })),
   ];
 
+  const activeMemberships = memberships.filter((m) => m.status === 'active');
+  const inactiveMemberships = memberships.filter((m) => m.status === 'inactive');
+  const cancelledMemberships = memberships.filter((m) => m.status === 'cancelled');
+
+  const totalMonthlyCost = activeMemberships.reduce(
+    (sum, m) => sum + calcMonthlyEquivalent(m.amount, m.cycle_unit, m.cycle_interval),
+    0
+  );
+  const totalYearlyCost = totalMonthlyCost * 12;
+
+  const currentMonthStr = todayStr.slice(0, 7);
+  const thisMonthBills = activeMemberships.filter(
+    (m) => m.next_billing_at && m.next_billing_at.startsWith(currentMonthStr)
+  );
+  const thisMonthTotal = thisMonthBills.reduce((s, m) => s + Number(m.amount || 0), 0);
+
+  const pausedMonthlySavings = inactiveMemberships.reduce(
+    (sum, m) => sum + calcMonthlyEquivalent(m.amount, m.cycle_unit, m.cycle_interval),
+    0
+  );
+
   return (
     <div className="space-y-6">
       <div className="bg-cream-50 border-2 border-white rounded-3xl p-5 shadow-cozy flex flex-wrap items-center justify-between gap-4">
@@ -397,6 +471,92 @@ export default function Memberships({
                 ? 'Memberships & Recurring Billing'
                 : 'ระบบ Membership & บริการตัดเงินตามรอบ'}
             </h1>
+          </div>
+        </div>
+      </div>
+
+      {/* Monthly Financial Summary KPI Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Card 1: Total Monthly Expense */}
+        <div className="bg-cream-50 border-2 border-white rounded-3xl p-4 shadow-cozy flex items-center gap-3.5">
+          <div className="w-12 h-12 rounded-2xl bg-pastel-pink/60 flex items-center justify-center text-2xl shadow-sticker border-2 border-white shrink-0">
+            💸
+          </div>
+          <div className="min-w-0">
+            <span className="text-[11px] font-bold text-pastel-muted block">
+              {isEn ? 'Monthly Expense (Avg)' : 'เงินที่เสียเฉลี่ยต่อเดือน'}
+            </span>
+            <p className="font-cute font-bold text-xl text-pink-700 truncate">
+              ฿{formatCurrency(totalMonthlyCost)}
+              <span className="text-xs font-normal text-pastel-muted"> / {isEn ? 'mo' : 'เดือน'}</span>
+            </p>
+            <span className="text-[10px] text-pastel-muted block truncate">
+              {isEn
+                ? `~฿${formatCurrency(totalYearlyCost)} / year`
+                : `คิดเป็น ~฿${formatCurrency(totalYearlyCost)} ต่อปี`}
+            </span>
+          </div>
+        </div>
+
+        {/* Card 2: Due This Month */}
+        <div className="bg-cream-50 border-2 border-white rounded-3xl p-4 shadow-cozy flex items-center gap-3.5">
+          <div className="w-12 h-12 rounded-2xl bg-pastel-butter/80 flex items-center justify-center text-2xl shadow-sticker border-2 border-white shrink-0">
+            🗓️
+          </div>
+          <div className="min-w-0">
+            <span className="text-[11px] font-bold text-pastel-muted block">
+              {isEn ? 'Due in This Month' : 'ตัดเงินในเดือนนี้'}
+            </span>
+            <p className="font-cute font-bold text-xl text-amber-800 truncate">
+              ฿{formatCurrency(thisMonthTotal)}
+            </p>
+            <span className="text-[10px] text-pastel-muted block truncate">
+              {isEn
+                ? `${thisMonthBills.length} service(s) scheduled`
+                : `${thisMonthBills.length} บริการที่ตัดรอบในเดือนนี้`}
+            </span>
+          </div>
+        </div>
+
+        {/* Card 3: Active Subscriptions Count */}
+        <div className="bg-cream-50 border-2 border-white rounded-3xl p-4 shadow-cozy flex items-center gap-3.5">
+          <div className="w-12 h-12 rounded-2xl bg-pastel-mint/80 flex items-center justify-center text-2xl shadow-sticker border-2 border-white shrink-0">
+            ✨
+          </div>
+          <div className="min-w-0">
+            <span className="text-[11px] font-bold text-pastel-muted block">
+              {isEn ? 'Active Services' : 'บริการที่เปิดใช้งานอยู่'}
+            </span>
+            <p className="font-cute font-bold text-xl text-emerald-800 truncate">
+              {activeMemberships.length}{' '}
+              <span className="text-xs font-normal text-pastel-muted">{isEn ? 'services' : 'รายการ'}</span>
+            </p>
+            <span className="text-[10px] text-pastel-muted block truncate">
+              {isEn
+                ? `Avg ~฿${formatCurrency(activeMemberships.length > 0 ? totalMonthlyCost / activeMemberships.length : 0)}/ea`
+                : `เฉลี่ย ~฿${formatCurrency(activeMemberships.length > 0 ? totalMonthlyCost / activeMemberships.length : 0)} / บริการ`}
+            </span>
+          </div>
+        </div>
+
+        {/* Card 4: Paused Savings */}
+        <div className="bg-cream-50 border-2 border-white rounded-3xl p-4 shadow-cozy flex items-center gap-3.5">
+          <div className="w-12 h-12 rounded-2xl bg-pastel-lavender/80 flex items-center justify-center text-2xl shadow-sticker border-2 border-white shrink-0">
+            🛡️
+          </div>
+          <div className="min-w-0">
+            <span className="text-[11px] font-bold text-pastel-muted block">
+              {isEn ? 'Paused (Savings)' : 'พักไว้ (ประหยัดได้)'}
+            </span>
+            <p className="font-cute font-bold text-xl text-purple-800 truncate">
+              +฿{formatCurrency(pausedMonthlySavings)}
+              <span className="text-xs font-normal text-pastel-muted"> / {isEn ? 'mo' : 'ด.'}</span>
+            </p>
+            <span className="text-[10px] text-pastel-muted block truncate">
+              {isEn
+                ? `${inactiveMemberships.length} paused, ${cancelledMemberships.length} cancelled`
+                : `พักไว้ ${inactiveMemberships.length} รายการ (ยกเลิก ${cancelledMemberships.length})`}
+            </span>
           </div>
         </div>
       </div>
@@ -515,6 +675,23 @@ export default function Memberships({
                         {cycleUnitLabels[m.cycle_unit] || m.cycle_unit}
                       </span>
                     </p>
+                    {isActive ? (
+                      <p className="text-[11px] font-cute font-bold mt-0.5">
+                        {m.cycle_unit === 'month' && Number(m.cycle_interval) === 1 ? (
+                          <span className="text-pink-600">✨ ฿{formatCurrency(m.amount)} / เดือน</span>
+                        ) : m.cycle_unit === 'hour' ? (
+                          <span className="text-amber-700">⏱️ ตามชั่วโมงจริง</span>
+                        ) : (
+                          <span className="text-pink-600">
+                            ✨ เฉลี่ย ~฿{formatCurrency(calcMonthlyEquivalent(m.amount, m.cycle_unit, m.cycle_interval))} / เดือน
+                          </span>
+                        )}
+                      </p>
+                    ) : (
+                      <p className="text-[11px] text-pastel-muted font-medium mt-0.5">
+                        {isEn ? '⏸️ Paused (No charge)' : '⏸️ พักไว้ (ไม่คิดค่าบริการ)'}
+                      </p>
+                    )}
                     <div className="flex items-center justify-end gap-1 mt-1">
                       <button
                         type="button"

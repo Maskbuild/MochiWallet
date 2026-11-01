@@ -28,6 +28,7 @@ export default function Transactions({
   const [accountId, setAccountId] = useState(accounts[0]?.id || '');
   const [subAccountId, setSubAccountId] = useState('');
   const [toAccountId, setToAccountId] = useState(accounts[1]?.id || '');
+  const [toSubAccountId, setToSubAccountId] = useState('');
   const [categoryId, setCategoryId] = useState('');
   const [shopId, setShopId] = useState('');
   const [txDate, setTxDate] = useState(todayStr);
@@ -59,6 +60,7 @@ export default function Transactions({
   const [editAccountId, setEditAccountId] = useState('');
   const [editSubAccountId, setEditSubAccountId] = useState('');
   const [editToAccountId, setEditToAccountId] = useState('');
+  const [editToSubAccountId, setEditToSubAccountId] = useState('');
   const [editCategoryId, setEditCategoryId] = useState('');
   const [editShopId, setEditShopId] = useState('');
   const [editDate, setEditDate] = useState(todayStr);
@@ -72,9 +74,19 @@ export default function Transactions({
     [accounts, accountId]
   );
 
+  const selectedToAccountObj = useMemo(
+    () => accounts.find((a) => String(a.id) === String(toAccountId || accounts[1]?.id || accounts[0]?.id)),
+    [accounts, toAccountId]
+  );
+
   const editAccountObj = useMemo(
     () => accounts.find((a) => String(a.id) === String(editAccountId)),
     [accounts, editAccountId]
+  );
+
+  const editToAccountObj = useMemo(
+    () => accounts.find((a) => String(a.id) === String(editToAccountId)),
+    [accounts, editToAccountId]
   );
 
   const matchingCategories = useMemo(
@@ -121,7 +133,11 @@ export default function Transactions({
         formData.append('sub_account_id', subAccountId);
       }
       if (txType === 'transfer') {
-        formData.append('to_account_id', toAccountId || accounts[1]?.id || chosenAcc);
+        const chosenToAcc = toAccountId || accounts[1]?.id || chosenAcc;
+        formData.append('to_account_id', chosenToAcc);
+        if (selectedToAccountObj?.has_sub_accounts && toSubAccountId) {
+          formData.append('to_sub_account_id', toSubAccountId);
+        }
       }
       if (txType !== 'transfer' && categoryId) {
         formData.append('category_id', categoryId);
@@ -145,6 +161,8 @@ export default function Transactions({
       if (res.ok) {
         setTitle('');
         setAmount('');
+        setSubAccountId('');
+        setToSubAccountId('');
         setNote('');
         setSlipFile(null);
         setAttachmentFile(null);
@@ -165,6 +183,7 @@ export default function Transactions({
     setEditAccountId(String(tx.account_id || ''));
     setEditSubAccountId(tx.sub_account_id || '');
     setEditToAccountId(tx.to_account_id ? String(tx.to_account_id) : '');
+    setEditToSubAccountId(tx.to_sub_account_id || '');
     setEditCategoryId(tx.category_id ? String(tx.category_id) : '');
     setEditShopId(tx.shop_id ? String(tx.shop_id) : '');
     setEditDate(tx.transaction_date || todayStr);
@@ -188,6 +207,10 @@ export default function Transactions({
         editAccountObj?.has_sub_accounts ? editSubAccountId || '' : ''
       );
       formData.append('to_account_id', editType === 'transfer' ? editToAccountId : '');
+      formData.append(
+        'to_sub_account_id',
+        editType === 'transfer' && editToAccountObj?.has_sub_accounts ? editToSubAccountId || '' : ''
+      );
       formData.append('category_id', editType !== 'transfer' ? editCategoryId : '');
       formData.append('shop_id', editShopId || '');
       formData.append('transaction_date', editDate);
@@ -402,7 +425,10 @@ export default function Transactions({
                   </label>
                   <CuteSelect
                     value={toAccountId || accounts[1]?.id || ''}
-                    onChange={(val) => setToAccountId(val)}
+                    onChange={(val) => {
+                      setToAccountId(val);
+                      setToSubAccountId('');
+                    }}
                     options={accountOptions}
                   />
                 </div>
@@ -420,39 +446,111 @@ export default function Transactions({
               )}
             </div>
 
-            {/* Account Sub-Category Selector (Only unlocked if selected account has has_sub_accounts enabled!) */}
-            <div className="bg-pastel-lavender/30 border border-pastel-lavender rounded-2xl p-3">
-              <label className="block text-xs font-cute font-bold text-pastel-cocoa mb-1">
-                🗂️ {isEn ? 'Account Sub-Category / Pocket' : 'หมวดย่อยของบัญชี (ถ้าเปิดใช้งาน)'}
-              </label>
-              {selectedAccountObj?.has_sub_accounts &&
-              selectedAccountObj?.sub_accounts_list?.length > 0 ? (
-                <CuteSelect
-                  size="sm"
-                  value={subAccountId}
-                  onChange={setSubAccountId}
-                  options={[
-                    {
-                      value: '',
-                      label: isEn ? '-- Main Account Balance --' : '-- ไม่ระบุหมวดย่อย (ใช้ยอดรวม) --',
-                    },
-                    ...selectedAccountObj.sub_accounts_list.map((s) => ({
-                      value: s.id,
-                      label: `${s.emoji || '🏷️'} ${s.name} (฿${formatCurrency(s.balance)})`,
-                    })),
-                  ]}
-                />
-              ) : (
-                <div className="flex items-center gap-1.5 text-[11px] text-pastel-muted">
-                  <Lock className="w-3.5 h-3.5 shrink-0" />
-                  <span>
-                    {isEn
-                      ? 'This wallet does not have sub-categories enabled (enable in Wallets page first).'
-                      : 'บัญชีนี้ไม่ได้เลือกเปิดใช้งานหมวดย่อย (ต้องเปิดใช้หมวดย่อยที่หน้าบัญชีก่อนจึงจะเลือกได้)'}
-                  </span>
+            {/* Sub-Category Selectors */}
+            {txType === 'transfer' ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Source sub-pocket */}
+                <div className="bg-pastel-lavender/30 border border-pastel-lavender rounded-2xl p-3">
+                  <label className="block text-xs font-cute font-bold text-pastel-cocoa mb-1">
+                    🗂️ {isEn ? 'Source Sub-Category / Pocket' : 'หมวดย่อยบัญชีต้นทาง (ถ้ามี)'}
+                  </label>
+                  {selectedAccountObj?.has_sub_accounts &&
+                  selectedAccountObj?.sub_accounts_list?.length > 0 ? (
+                    <CuteSelect
+                      size="sm"
+                      value={subAccountId}
+                      onChange={setSubAccountId}
+                      options={[
+                        {
+                          value: '',
+                          label: isEn ? '-- Main Balance (Unspecified) --' : '-- ไม่ระบุหมวดย่อย (ตัดยอดรวม) --',
+                        },
+                        ...selectedAccountObj.sub_accounts_list.map((s) => ({
+                          value: s.id,
+                          label: `${s.emoji || '🏷️'} ${s.name} (฿${formatCurrency(s.balance)})`,
+                        })),
+                      ]}
+                    />
+                  ) : (
+                    <div className="flex items-center gap-1.5 text-[11px] text-pastel-muted">
+                      <Lock className="w-3.5 h-3.5 shrink-0" />
+                      <span>
+                        {isEn
+                          ? 'Source wallet has no sub-categories.'
+                          : 'บัญชีต้นทางนี้ไม่ได้เปิดหมวดย่อย'}
+                      </span>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
+
+                {/* Destination sub-pocket */}
+                <div className="bg-pastel-mint/35 border border-pastel-mint rounded-2xl p-3">
+                  <label className="block text-xs font-cute font-bold text-pastel-cocoa mb-1">
+                    📥 {isEn ? 'Destination Sub-Category / Pocket' : 'หมวดย่อยบัญชีปลายทาง (ถ้ามี)'}
+                  </label>
+                  {selectedToAccountObj?.has_sub_accounts &&
+                  selectedToAccountObj?.sub_accounts_list?.length > 0 ? (
+                    <CuteSelect
+                      size="sm"
+                      value={toSubAccountId}
+                      onChange={setToSubAccountId}
+                      options={[
+                        {
+                          value: '',
+                          label: isEn ? '-- Main Balance (Unspecified) --' : '-- ไม่ระบุหมวดย่อย (เข้ายอดรวม) --',
+                        },
+                        ...selectedToAccountObj.sub_accounts_list.map((s) => ({
+                          value: s.id,
+                          label: `${s.emoji || '🏷️'} ${s.name} (฿${formatCurrency(s.balance)})`,
+                        })),
+                      ]}
+                    />
+                  ) : (
+                    <div className="flex items-center gap-1.5 text-[11px] text-pastel-muted">
+                      <Lock className="w-3.5 h-3.5 shrink-0" />
+                      <span>
+                        {isEn
+                          ? 'Destination wallet has no sub-categories.'
+                          : 'บัญชีปลายทางนี้ไม่ได้เปิดหมวดย่อย'}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="bg-pastel-lavender/30 border border-pastel-lavender rounded-2xl p-3">
+                <label className="block text-xs font-cute font-bold text-pastel-cocoa mb-1">
+                  🗂️ {isEn ? 'Account Sub-Category / Pocket' : 'หมวดย่อยของบัญชี (ถ้าเปิดใช้งาน)'}
+                </label>
+                {selectedAccountObj?.has_sub_accounts &&
+                selectedAccountObj?.sub_accounts_list?.length > 0 ? (
+                  <CuteSelect
+                    size="sm"
+                    value={subAccountId}
+                    onChange={setSubAccountId}
+                    options={[
+                      {
+                        value: '',
+                        label: isEn ? '-- Main Account Balance --' : '-- ไม่ระบุหมวดย่อย (ใช้ยอดรวม) --',
+                      },
+                      ...selectedAccountObj.sub_accounts_list.map((s) => ({
+                        value: s.id,
+                        label: `${s.emoji || '🏷️'} ${s.name} (฿${formatCurrency(s.balance)})`,
+                      })),
+                    ]}
+                  />
+                ) : (
+                  <div className="flex items-center gap-1.5 text-[11px] text-pastel-muted">
+                    <Lock className="w-3.5 h-3.5 shrink-0" />
+                    <span>
+                      {isEn
+                        ? 'This wallet does not have sub-categories enabled (enable in Wallets page first).'
+                        : 'บัญชีนี้ไม่ได้เลือกเปิดใช้งานหมวดย่อย (ต้องเปิดใช้หมวดย่อยที่หน้าบัญชีก่อนจึงจะเลือกได้)'}
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Quick Shop Selector Pills */}
             {txType !== 'transfer' && shops.length > 0 && (
@@ -737,7 +835,7 @@ export default function Transactions({
                           📅 {tx.transaction_date} • {tx.account_emoji} {tx.account_name}
                           {tx.sub_account_label ? ` [${tx.sub_account_label}]` : ''}
                           {tx.type === 'transfer' && tx.to_account_name
-                            ? ` ➔ ${tx.to_account_emoji} ${tx.to_account_name}`
+                            ? ` ➔ ${tx.to_account_emoji} ${tx.to_account_name}${tx.to_sub_account_label ? ` [${tx.to_sub_account_label}]` : ''}`
                             : ''}
                         </p>
 
@@ -945,7 +1043,10 @@ export default function Transactions({
                 </label>
                 <CuteSelect
                   value={editToAccountId}
-                  onChange={setEditToAccountId}
+                  onChange={(val) => {
+                    setEditToAccountId(val);
+                    setEditToSubAccountId('');
+                  }}
                   options={accountOptions}
                 />
               </div>
@@ -969,24 +1070,67 @@ export default function Transactions({
             )}
           </div>
 
-          {editAccountObj?.has_sub_accounts && editAccountObj?.sub_accounts_list?.length > 0 && (
-            <div>
-              <label className="block text-xs font-bold text-pastel-cocoa mb-1">
-                🗂️ {isEn ? 'Account Sub-Category' : 'หมวดย่อยของบัญชี'}
-              </label>
-              <CuteSelect
-                size="sm"
-                value={editSubAccountId}
-                onChange={setEditSubAccountId}
-                options={[
-                  { value: '', label: isEn ? '-- None --' : '-- ไม่ระบุหมวดย่อย --' },
-                  ...editAccountObj.sub_accounts_list.map((s) => ({
-                    value: s.id,
-                    label: `${s.emoji || '🏷️'} ${s.name}`,
-                  })),
-                ]}
-              />
+          {editType === 'transfer' ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {editAccountObj?.has_sub_accounts && editAccountObj?.sub_accounts_list?.length > 0 && (
+                <div>
+                  <label className="block text-xs font-bold text-pastel-cocoa mb-1">
+                    🗂️ {isEn ? 'Source Sub-Category' : 'หมวดย่อยบัญชีต้นทาง'}
+                  </label>
+                  <CuteSelect
+                    size="sm"
+                    value={editSubAccountId}
+                    onChange={setEditSubAccountId}
+                    options={[
+                      { value: '', label: isEn ? '-- None --' : '-- ไม่ระบุหมวดย่อย --' },
+                      ...editAccountObj.sub_accounts_list.map((s) => ({
+                        value: s.id,
+                        label: `${s.emoji || '🏷️'} ${s.name}`,
+                      })),
+                    ]}
+                  />
+                </div>
+              )}
+              {editToAccountObj?.has_sub_accounts && editToAccountObj?.sub_accounts_list?.length > 0 && (
+                <div>
+                  <label className="block text-xs font-bold text-pastel-cocoa mb-1">
+                    📥 {isEn ? 'Destination Sub-Category' : 'หมวดย่อยบัญชีปลายทาง'}
+                  </label>
+                  <CuteSelect
+                    size="sm"
+                    value={editToSubAccountId}
+                    onChange={setEditToSubAccountId}
+                    options={[
+                      { value: '', label: isEn ? '-- None --' : '-- ไม่ระบุหมวดย่อย --' },
+                      ...editToAccountObj.sub_accounts_list.map((s) => ({
+                        value: s.id,
+                        label: `${s.emoji || '🏷️'} ${s.name}`,
+                      })),
+                    ]}
+                  />
+                </div>
+              )}
             </div>
+          ) : (
+            editAccountObj?.has_sub_accounts && editAccountObj?.sub_accounts_list?.length > 0 && (
+              <div>
+                <label className="block text-xs font-bold text-pastel-cocoa mb-1">
+                  🗂️ {isEn ? 'Account Sub-Category' : 'หมวดย่อยของบัญชี'}
+                </label>
+                <CuteSelect
+                  size="sm"
+                  value={editSubAccountId}
+                  onChange={setEditSubAccountId}
+                  options={[
+                    { value: '', label: isEn ? '-- None --' : '-- ไม่ระบุหมวดย่อย --' },
+                    ...editAccountObj.sub_accounts_list.map((s) => ({
+                      value: s.id,
+                      label: `${s.emoji || '🏷️'} ${s.name}`,
+                    })),
+                  ]}
+                />
+              </div>
+            )
           )}
 
           <div>

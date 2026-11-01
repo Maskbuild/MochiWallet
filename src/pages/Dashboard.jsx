@@ -592,7 +592,7 @@ export default function Dashboard({
                         📅 {tx.transaction_date} • {tx.account_emoji} {tx.account_name}
                         {tx.sub_account_label ? ` (${tx.sub_account_label})` : ''}
                         {tx.type === 'transfer' && tx.to_account_name
-                          ? ` ➔ ${tx.to_account_emoji} ${tx.to_account_name}`
+                          ? ` ➔ ${tx.to_account_emoji} ${tx.to_account_name}${tx.to_sub_account_label ? ` (${tx.to_sub_account_label})` : ''}`
                           : ''}
                       </p>
                       <FormattedNote text={tx.note} className="mt-1" />

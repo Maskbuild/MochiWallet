@@ -458,14 +458,45 @@ app.get('/api/transactions', (req, res) => {
         if (found) subAccountName = `${found.emoji || '🏷️'} ${found.name}`;
       } catch {}
     }
+    let toSubAccountName = null;
+    if (r.to_sub_account_id && r.to_account_subs_json) {
+      try {
+        const list = JSON.parse(r.to_account_subs_json);
+        const found = list.find((x) => String(x.id) === String(r.to_sub_account_id));
+        if (found) toSubAccountName = `${found.emoji || '🏷️'} ${found.name}`;
+      } catch {}
+    }
     return {
       ...r,
       sub_account_label: subAccountName,
+      to_sub_account_label: toSubAccountName,
     };
   });
 
   res.json(enriched);
 });
+
+function adjustSubAccountBalance(accountId, subAccountId, delta) {
+  if (!accountId || !subAccountId || !delta) return;
+  try {
+    const acc = db.prepare('SELECT sub_accounts FROM accounts WHERE id = ?').get(Number(accountId));
+    if (!acc || !acc.sub_accounts) return;
+    const subs = JSON.parse(acc.sub_accounts);
+    let changed = false;
+    for (const s of subs) {
+      if (String(s.id) === String(subAccountId)) {
+        s.balance = Math.round(((Number(s.balance) || 0) + Number(delta)) * 100) / 100;
+        changed = true;
+        break;
+      }
+    }
+    if (changed) {
+      db.prepare('UPDATE accounts SET sub_accounts = ? WHERE id = ?').run(JSON.stringify(subs), Number(accountId));
+    }
+  } catch (err) {
+    console.error('adjustSubAccountBalance error:', err);
+  }
+}
 
 const txUploadFields = uploadTransactionFiles.fields([
   { name: 'slip_image', maxCount: 1 },
@@ -523,13 +554,17 @@ app.post('/api/transactions', txUploadFields, (req, res) => {
 
     if (type === 'income') {
       db.prepare('UPDATE accounts SET balance = balance + ? WHERE id = ?').run(numAmount, accId);
+      adjustSubAccountBalance(accId, sub_account_id, numAmount);
       logActivity('create_tx', txDate, `รายรับ: ${title || 'รายการใหม่'}`);
     } else if (type === 'expense') {
       db.prepare('UPDATE accounts SET balance = balance - ? WHERE id = ?').run(numAmount, accId);
+      adjustSubAccountBalance(accId, sub_account_id, -numAmount);
       logActivity('create_tx', txDate, `รายจ่าย: ${title || 'รายการใหม่'}`);
     } else if (type === 'transfer' && toAccId) {
       db.prepare('UPDATE accounts SET balance = balance - ? WHERE id = ?').run(numAmount, accId);
       db.prepare('UPDATE accounts SET balance = balance + ? WHERE id = ?').run(numAmount, toAccId);
+      adjustSubAccountBalance(accId, sub_account_id, -numAmount);
+      adjustSubAccountBalance(toAccId, to_sub_account_id, numAmount);
       logActivity('create_transfer', txDate, `โอนเงิน/แลกเปลี่ยน: ${title || 'โอนระหว่างบัญชี'}`);
     }
 
@@ -550,11 +585,15 @@ app.put('/api/transactions/:id', txUploadFields, (req, res) => {
     // Revert old balance effect first
     if (existing.type === 'income') {
       db.prepare('UPDATE accounts SET balance = balance - ? WHERE id = ?').run(existing.amount, existing.account_id);
+      adjustSubAccountBalance(existing.account_id, existing.sub_account_id, -existing.amount);
     } else if (existing.type === 'expense') {
       db.prepare('UPDATE accounts SET balance = balance + ? WHERE id = ?').run(existing.amount, existing.account_id);
+      adjustSubAccountBalance(existing.account_id, existing.sub_account_id, existing.amount);
     } else if (existing.type === 'transfer' && existing.to_account_id) {
       db.prepare('UPDATE accounts SET balance = balance + ? WHERE id = ?').run(existing.amount, existing.account_id);
       db.prepare('UPDATE accounts SET balance = balance - ? WHERE id = ?').run(existing.amount, existing.to_account_id);
+      adjustSubAccountBalance(existing.account_id, existing.sub_account_id, existing.amount);
+      adjustSubAccountBalance(existing.to_account_id, existing.to_sub_account_id, -existing.amount);
     }
 
     const {
@@ -630,14 +669,21 @@ app.put('/api/transactions/:id', txUploadFields, (req, res) => {
       Number(id)
     );
 
+    const finalSubId = sub_account_id !== undefined ? sub_account_id || null : existing.sub_account_id;
+    const finalToSubId = to_sub_account_id !== undefined ? to_sub_account_id || null : existing.to_sub_account_id;
+
     // Apply new balance effect
     if (newType === 'income') {
       db.prepare('UPDATE accounts SET balance = balance + ? WHERE id = ?').run(numAmount, accId);
+      adjustSubAccountBalance(accId, finalSubId, numAmount);
     } else if (newType === 'expense') {
       db.prepare('UPDATE accounts SET balance = balance - ? WHERE id = ?').run(numAmount, accId);
+      adjustSubAccountBalance(accId, finalSubId, -numAmount);
     } else if (newType === 'transfer' && toAccId) {
       db.prepare('UPDATE accounts SET balance = balance - ? WHERE id = ?').run(numAmount, accId);
       db.prepare('UPDATE accounts SET balance = balance + ? WHERE id = ?').run(numAmount, toAccId);
+      adjustSubAccountBalance(accId, finalSubId, -numAmount);
+      adjustSubAccountBalance(toAccId, finalToSubId, numAmount);
     }
 
     const updated = db.prepare('SELECT * FROM transactions WHERE id = ?').get(Number(id));
@@ -655,11 +701,15 @@ app.delete('/api/transactions/:id', (req, res) => {
 
     if (tx.type === 'income') {
       db.prepare('UPDATE accounts SET balance = balance - ? WHERE id = ?').run(tx.amount, tx.account_id);
+      adjustSubAccountBalance(tx.account_id, tx.sub_account_id, -tx.amount);
     } else if (tx.type === 'expense') {
       db.prepare('UPDATE accounts SET balance = balance + ? WHERE id = ?').run(tx.amount, tx.account_id);
+      adjustSubAccountBalance(tx.account_id, tx.sub_account_id, tx.amount);
     } else if (tx.type === 'transfer' && tx.to_account_id) {
       db.prepare('UPDATE accounts SET balance = balance + ? WHERE id = ?').run(tx.amount, tx.account_id);
       db.prepare('UPDATE accounts SET balance = balance - ? WHERE id = ?').run(tx.amount, tx.to_account_id);
+      adjustSubAccountBalance(tx.account_id, tx.sub_account_id, tx.amount);
+      adjustSubAccountBalance(tx.to_account_id, tx.to_sub_account_id, -tx.amount);
     }
 
     db.prepare('DELETE FROM transactions WHERE id = ?').run(tx.id);
