@@ -7,7 +7,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const uploadsRoot = path.join(__dirname, '..', 'uploads');
-const folders = ['accounts', 'categories', 'slips', 'attachments'];
+const folders = ['accounts', 'categories', 'shops', 'slips', 'attachments'];
 
 for (const folder of folders) {
   const dir = path.join(uploadsRoot, folder);
@@ -61,6 +61,7 @@ export const uploadTransactionFiles = multer({
 
 export const uploadAccountCover = createUploader('accounts');
 export const uploadCategoryImage = createUploader('categories');
+export const uploadShopImage = createUploader('shops');
 export const uploadSlipImage = createUploader('slips');
 export const uploadAttachmentImage = createUploader('attachments');
 export const uploadsDirectory = uploadsRoot;

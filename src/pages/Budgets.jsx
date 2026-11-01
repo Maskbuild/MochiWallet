@@ -36,7 +36,16 @@ function BudgetFormFields({
   expenseCategories,
   expenseCatOptions,
   submitLabel,
+  submitting,
 }) {
+  const mainLimitNum = Number(totalLimit) || 0;
+  const subTotalLimit = subAllocations.reduce(
+    (sum, s) => sum + (Number(s.limit_amount) || 0),
+    0
+  );
+  const isOverMainLimit = budgetScope === 'overall' && mainLimitNum > 0 && subTotalLimit > mainLimitNum;
+  const unallocatedLimit = Math.max(0, mainLimitNum - subTotalLimit);
+
   function addSubAllocationRow() {
     const firstCat = expenseCategories[0]?.id || '';
     setSubAllocations([...subAllocations, { category_id: firstCat, limit_amount: '' }]);
@@ -247,10 +256,13 @@ function BudgetFormFields({
                   </div>
                   <input
                     type="number"
+                    step="0.01"
                     placeholder={isEn ? 'Limit' : 'งบหมวดนี้'}
                     value={row.limit_amount}
                     onChange={(e) => updateSubRow(idx, 'limit_amount', e.target.value)}
-                    className="w-28 px-2.5 py-1.5 rounded-2xl bg-white border border-cream-300 text-xs font-bold"
+                    className={`w-28 px-2.5 py-1.5 rounded-2xl bg-white border text-xs font-bold ${
+                      isOverMainLimit ? 'border-rose-400 text-rose-600' : 'border-cream-300'
+                    }`}
                   />
                   <button
                     type="button"
@@ -261,6 +273,34 @@ function BudgetFormFields({
                   </button>
                 </div>
               ))}
+
+              {/* Sub-allocations Balance Cap Summary & Validation */}
+              <div
+                className={`p-2.5 rounded-xl border text-[11px] flex flex-wrap items-center justify-between gap-2 ${
+                  isOverMainLimit
+                    ? 'bg-rose-50 border-rose-300 text-rose-700 font-bold'
+                    : 'bg-white/80 border-cream-200 text-pastel-cocoa'
+                }`}
+              >
+                <span>
+                  {isEn ? 'Sub-budgets Total:' : 'รวมหมวดย่อย:'}{' '}
+                  <strong>฿{formatCurrency(subTotalLimit)}</strong> / ฿
+                  {formatCurrency(mainLimitNum)}
+                </span>
+                {isOverMainLimit ? (
+                  <span>
+                    ⚠️{' '}
+                    {isEn
+                      ? 'Sub-categories total cannot exceed main budget limit!'
+                      : 'ยอดรวมหมวดย่อยห้ามเกินวงเงินงบประมาณหลัก!'}
+                  </span>
+                ) : (
+                  <span className="text-emerald-700 font-semibold">
+                    {isEn ? 'Unallocated:' : 'คงเหลืองบส่วนกลาง:'} ฿
+                    {formatCurrency(unallocatedLimit)}
+                  </span>
+                )}
+              </div>
             </div>
           )}
         </div>
@@ -290,9 +330,10 @@ function BudgetFormFields({
 
       <button
         type="submit"
-        className="w-full py-3 rounded-2xl bg-pastel-lavender hover:bg-pastel-purple text-pastel-cocoa font-cute font-bold text-sm shadow-sticker border-2 border-white transition-transform hover:-translate-y-0.5"
+        disabled={isOverMainLimit || submitting}
+        className="w-full py-3 rounded-2xl bg-pastel-lavender hover:bg-pastel-purple text-pastel-cocoa font-cute font-bold text-sm shadow-sticker border-2 border-white transition-transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        {submitLabel}
+        {submitting ? (isEn ? 'Saving...' : 'กำลังบันทึก...') : submitLabel}
       </button>
     </div>
   );

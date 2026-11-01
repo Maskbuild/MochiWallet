@@ -19,6 +19,7 @@ import {
 import {
   uploadAccountCover,
   uploadCategoryImage,
+  uploadShopImage,
   uploadSlipImage,
   uploadAttachmentImage,
   uploadTransactionFiles,
@@ -342,14 +343,18 @@ app.get('/api/shops', (_req, res) => {
   res.json(shops);
 });
 
-app.post('/api/shops', (req, res) => {
+app.post('/api/shops', uploadShopImage.single('image'), (req, res) => {
   try {
     const { name, icon_emoji, color, default_category_id, note } = req.body;
     const catId = default_category_id ? Number(default_category_id) : null;
+    let imagePath = null;
+    if (req.file) {
+      imagePath = `/uploads/shops/${req.file.filename}`;
+    }
     const result = db.prepare(`
-      INSERT INTO shops (name, icon_emoji, color, default_category_id, note)
-      VALUES (?, ?, ?, ?, ?)
-    `).run(name || 'ร้านค้าใหม่', icon_emoji || '🏪', color || '#D6ECFF', catId, note || '');
+      INSERT INTO shops (name, icon_emoji, color, image_path, default_category_id, note)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run(name || 'ร้านค้าใหม่', icon_emoji || '🏪', color || '#D6ECFF', imagePath, catId, note || '');
 
     const created = db.prepare('SELECT * FROM shops WHERE id = ?').get(result.lastInsertRowid);
     res.json(created);
@@ -358,16 +363,28 @@ app.post('/api/shops', (req, res) => {
   }
 });
 
-app.put('/api/shops/:id', (req, res) => {
+app.put('/api/shops/:id', uploadShopImage.single('image'), (req, res) => {
   try {
     const { id } = req.params;
-    const { name, icon_emoji, color, default_category_id, note } = req.body;
+    const existing = db.prepare('SELECT * FROM shops WHERE id = ?').get(Number(id));
+    if (!existing) return res.status(404).json({ error: 'ไม่พบร้านค้า' });
+
+    const { name, icon_emoji, color, default_category_id, note, clear_image } = req.body;
     const catId = default_category_id ? Number(default_category_id) : null;
+    let imagePath = existing.image_path;
+
+    if (clear_image === 'true') {
+      imagePath = null;
+    }
+    if (req.file) {
+      imagePath = `/uploads/shops/${req.file.filename}`;
+    }
+
     db.prepare(`
       UPDATE shops
-      SET name = ?, icon_emoji = ?, color = ?, default_category_id = ?, note = ?
+      SET name = ?, icon_emoji = ?, color = ?, image_path = ?, default_category_id = ?, note = ?
       WHERE id = ?
-    `).run(name, icon_emoji || '🏪', color || '#D6ECFF', catId, note || '', Number(id));
+    `).run(name, icon_emoji || '🏪', color || '#D6ECFF', imagePath, catId, note || '', Number(id));
     const updated = db.prepare('SELECT * FROM shops WHERE id = ?').get(Number(id));
     res.json(updated);
   } catch (err) {
@@ -394,7 +411,7 @@ app.get('/api/transactions', (req, res) => {
       a.name as account_name, a.emoji as account_emoji, a.color as account_color, a.sub_accounts as account_subs_json,
       ta.name as to_account_name, ta.emoji as to_account_emoji, ta.color as to_account_color, ta.sub_accounts as to_account_subs_json,
       c.name as category_name, c.icon_emoji as category_emoji, c.color as category_color, c.image_path as category_image, c.parent_id as category_parent_id,
-      s.name as shop_name, s.icon_emoji as shop_emoji, s.color as shop_color
+      s.name as shop_name, s.icon_emoji as shop_emoji, s.color as shop_color, s.image_path as shop_image
     FROM transactions t
     LEFT JOIN accounts a ON t.account_id = a.id
     LEFT JOIN accounts ta ON t.to_account_id = ta.id

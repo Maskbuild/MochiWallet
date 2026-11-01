@@ -8,7 +8,6 @@ import CuteSelect from '../components/CuteSelect.jsx';
 import CuteColorPicker from '../components/CuteColorPicker.jsx';
 import CuteNoteEditor, { FormattedNote } from '../components/CuteNoteEditor.jsx';
 import CuteModal from '../components/CuteModal.jsx';
-import { QrMobileUploadButton } from '../components/QrMobileUploadModal.jsx';
 import { useI18n } from '../i18n.jsx';
 
 export default function CategoriesShops({
@@ -47,14 +46,20 @@ export default function CategoriesShops({
   const [shopName, setShopName] = useState('');
   const [shopEmoji, setShopEmoji] = useState('🏪');
   const [shopColor, setShopColor] = useState('#D6ECFF');
+  const [shopImageFile, setShopImageFile] = useState(null);
+  const [shopImagePreview, setShopImagePreview] = useState(null);
   const [shopDefaultCat, setShopDefaultCat] = useState('');
   const [shopNote, setShopNote] = useState('');
+  const shopFileInputRef = useRef(null);
 
   // Edit Shop Pop-up Modal States
   const [editModalShop, setEditModalShop] = useState(null);
   const [editShopName, setEditShopName] = useState('');
   const [editShopEmoji, setEditShopEmoji] = useState('🏪');
   const [editShopColor, setEditShopColor] = useState('#D6ECFF');
+  const [editShopImageFile, setEditShopImageFile] = useState(null);
+  const [editShopImagePreview, setEditShopImagePreview] = useState(null);
+  const [editShopClearImg, setEditShopClearImg] = useState(false);
   const [editShopDefaultCat, setEditShopDefaultCat] = useState('');
   const [editShopNote, setEditShopNote] = useState('');
 
@@ -148,8 +153,11 @@ export default function CategoriesShops({
     setShopName('');
     setShopEmoji('🏪');
     setShopColor('#D6ECFF');
+    setShopImageFile(null);
+    setShopImagePreview(null);
     setShopDefaultCat('');
     setShopNote('');
+    if (shopFileInputRef.current) shopFileInputRef.current.value = '';
   }
 
   function openEditShopModal(s) {
@@ -157,6 +165,9 @@ export default function CategoriesShops({
     setEditShopName(s.name);
     setEditShopEmoji(s.icon_emoji || '🏪');
     setEditShopColor(s.color || '#D6ECFF');
+    setEditShopImageFile(null);
+    setEditShopImagePreview(s.image_path || null);
+    setEditShopClearImg(false);
     setEditShopDefaultCat(s.default_category_id ? String(s.default_category_id) : '');
     setEditShopNote(s.note || '');
   }
@@ -165,18 +176,19 @@ export default function CategoriesShops({
     e.preventDefault();
     if (!shopName.trim()) return;
 
-    const payload = {
-      name: shopName.trim(),
-      icon_emoji: shopEmoji,
-      color: shopColor,
-      default_category_id: shopDefaultCat ? Number(shopDefaultCat) : null,
-      note: shopNote,
-    };
+    const formData = new FormData();
+    formData.append('name', shopName.trim());
+    formData.append('icon_emoji', shopEmoji);
+    formData.append('color', shopColor);
+    formData.append('default_category_id', shopDefaultCat || '');
+    formData.append('note', shopNote);
+    if (shopImageFile) {
+      formData.append('image', shopImageFile);
+    }
 
     const res = await fetch('/api/shops', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
+      body: formData,
     });
 
     if (res.ok) {
@@ -189,18 +201,20 @@ export default function CategoriesShops({
     e.preventDefault();
     if (!editModalShop || !editShopName.trim()) return;
 
-    const payload = {
-      name: editShopName.trim(),
-      icon_emoji: editShopEmoji,
-      color: editShopColor,
-      default_category_id: editShopDefaultCat ? Number(editShopDefaultCat) : null,
-      note: editShopNote,
-    };
+    const formData = new FormData();
+    formData.append('name', editShopName.trim());
+    formData.append('icon_emoji', editShopEmoji);
+    formData.append('color', editShopColor);
+    formData.append('default_category_id', editShopDefaultCat || '');
+    formData.append('note', editShopNote);
+    formData.append('clear_image', editShopClearImg ? 'true' : 'false');
+    if (editShopImageFile) {
+      formData.append('image', editShopImageFile);
+    }
 
     const res = await fetch(`/api/shops/${editModalShop.id}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
+      body: formData,
     });
 
     if (res.ok) {
@@ -340,26 +354,14 @@ export default function CategoriesShops({
               </div>
 
               <div className="bg-pastel-butter/40 border-2 border-dashed border-amber-300 rounded-2xl p-3.5 space-y-2">
-                <div className="flex items-center justify-between gap-2 flex-wrap">
-                  <label className="text-xs font-cute font-bold text-pastel-cocoa flex items-center gap-1.5">
-                    <ImageIcon className="w-4 h-4 shrink-0" />
-                    <span>
-                      {isEn
-                        ? 'Upload Category Image (Saved to gallery)'
-                        : 'อัปโหลดรูปประจำหมวดหมู่ (จำไว้ใช้ซ้ำอัตโนมัติ)'}
-                    </span>
-                  </label>
-                  <QrMobileUploadButton
-                    target="category"
-                    isEn={isEn}
-                    label={isEn ? '📱 Scan QR from Phone' : '📱 สแกนอัปโหลดจากมือถือ'}
-                    onFileReceived={(fileObj) => {
-                      setCatFile(fileObj);
-                      setReusedImagePath('');
-                      onRefresh?.();
-                    }}
-                  />
-                </div>
+                <label className="text-xs font-cute font-bold text-pastel-cocoa flex items-center gap-1.5">
+                  <ImageIcon className="w-4 h-4 shrink-0" />
+                  <span>
+                    {isEn
+                      ? 'Upload Category Image (Saved to gallery)'
+                      : 'อัปโหลดรูปประจำหมวดหมู่ (จำไว้ใช้ซ้ำอัตโนมัติ)'}
+                  </span>
+                </label>
                 <input
                   ref={catFileRef}
                   type="file"
@@ -580,6 +582,54 @@ export default function CategoriesShops({
                 />
               </div>
 
+              {/* Shop Logo / Photo Upload */}
+              <div className="bg-pastel-sky/30 border-2 border-dashed border-pastel-sky rounded-2xl p-3.5 space-y-2">
+                <label className="block text-xs font-cute font-bold text-pastel-cocoa flex items-center gap-1.5">
+                  <ImageIcon className="w-4 h-4 shrink-0" />
+                  <span>
+                    {isEn ? 'Shop Logo / Photo (Optional)' : 'รูปภาพหน้าร้าน / โลโก้ร้านค้า (ไม่บังคับ)'}
+                  </span>
+                </label>
+                <input
+                  ref={shopFileInputRef}
+                  type="file"
+                  accept="image/*,.gif,.png,.webp,.svg,.jpg,.jpeg"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) {
+                      setShopImageFile(f);
+                      setShopImagePreview(URL.createObjectURL(f));
+                    }
+                  }}
+                  className="block w-full text-xs text-pastel-muted file:mr-3 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-pastel-sky file:text-pastel-cocoa hover:file:bg-pastel-blue cursor-pointer"
+                />
+                {shopImagePreview && (
+                  <div className="mt-2 flex items-center gap-3 p-2 rounded-xl bg-white/80 border border-cream-200">
+                    <img
+                      src={shopImagePreview}
+                      alt="Shop Preview"
+                      className="w-12 h-12 object-contain rounded-lg border border-white bg-cream-50"
+                    />
+                    <div className="text-xs flex-1 truncate">
+                      <p className="font-bold text-pastel-cocoa truncate">
+                        {shopImageFile?.name || (isEn ? 'Current Photo' : 'รูปที่เลือก')}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShopImageFile(null);
+                        setShopImagePreview(null);
+                        if (shopFileInputRef.current) shopFileInputRef.current.value = '';
+                      }}
+                      className="px-2 py-1 rounded-lg bg-rose-100 text-rose-700 text-[11px] font-bold hover:bg-rose-200"
+                    >
+                      {isEn ? 'Remove' : 'ลบรูป'}
+                    </button>
+                  </div>
+                )}
+              </div>
+
               <div>
                 <label className="block text-xs font-bold text-pastel-cocoa mb-1.5">
                   {isEn ? '🎨 Shop Badge Color & Cartoon Icon' : '🎨 สีป้ายร้านค้า & ไอคอนการ์ตูน'}
@@ -630,8 +680,16 @@ export default function CategoriesShops({
                   className="rounded-3xl p-4 border-2 border-white shadow-sticker flex items-start justify-between gap-3"
                 >
                   <div className="flex items-start gap-3 min-w-0">
-                    <div className="w-12 h-12 rounded-2xl bg-white/75 border border-white flex items-center justify-center text-2xl shrink-0">
-                      {s.icon_emoji}
+                    <div className="w-12 h-12 rounded-2xl bg-white/75 border border-white flex items-center justify-center text-2xl shrink-0 overflow-hidden">
+                      {s.image_path ? (
+                        <img
+                          src={s.image_path}
+                          alt={s.name}
+                          className="w-full h-full object-contain p-1"
+                        />
+                      ) : (
+                        s.icon_emoji
+                      )}
                     </div>
                     <div className="min-w-0">
                       <h4 className="font-cute font-bold text-base text-pastel-cocoa truncate">
@@ -694,22 +752,9 @@ export default function CategoriesShops({
           </div>
 
           <div className="bg-pastel-butter/40 border border-amber-300 rounded-2xl p-3 space-y-2">
-            <div className="flex items-center justify-between gap-2 flex-wrap">
-              <label className="text-xs font-cute font-bold text-pastel-cocoa">
-                🖼️ {isEn ? 'Update or Reuse Category Image' : 'อัปเดตหรือเลือกรูปหมวดหมู่'}
-              </label>
-              <QrMobileUploadButton
-                target="category"
-                isEn={isEn}
-                label={isEn ? '📱 Scan QR' : '📱 สแกนจากมือถือ'}
-                onFileReceived={(fileObj) => {
-                  setEditCatFile(fileObj);
-                  setEditReusedPath('');
-                  setEditClearImg(false);
-                  onRefresh?.();
-                }}
-              />
-            </div>
+            <label className="block text-xs font-cute font-bold text-pastel-cocoa">
+              🖼️ {isEn ? 'Update or Reuse Category Image' : 'อัปเดตหรือเลือกรูปหมวดหมู่'}
+            </label>
             <input
               type="file"
               accept="image/*"
@@ -810,6 +855,45 @@ export default function CategoriesShops({
               onChange={setEditShopDefaultCat}
               options={shopCatOptions}
             />
+          </div>
+
+          <div className="bg-pastel-sky/30 border border-pastel-sky rounded-2xl p-3 space-y-2">
+            <label className="block text-xs font-cute font-bold text-pastel-cocoa">
+              🖼️ {isEn ? 'Update Shop Photo / Logo' : 'อัปเดตรูปหน้าร้าน / โลโก้ร้านค้า'}
+            </label>
+            <input
+              type="file"
+              accept="image/*,.gif,.png,.webp,.svg,.jpg,.jpeg"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) {
+                  setEditShopImageFile(f);
+                  setEditShopImagePreview(URL.createObjectURL(f));
+                  setEditShopClearImg(false);
+                }
+              }}
+              className="block w-full text-xs"
+            />
+            {editShopImagePreview && (
+              <div className="flex items-center gap-3 p-2 rounded-xl bg-white/80 border border-cream-200">
+                <img
+                  src={editShopImagePreview}
+                  alt="Shop Preview"
+                  className="w-10 h-10 object-contain rounded-lg border border-white bg-cream-50"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditShopImageFile(null);
+                    setEditShopImagePreview(null);
+                    setEditShopClearImg(true);
+                  }}
+                  className="px-2 py-1 rounded-lg bg-rose-100 text-rose-700 text-[11px] font-bold hover:bg-rose-200"
+                >
+                  {isEn ? 'Remove' : 'ลบรูป'}
+                </button>
+              </div>
+            )}
           </div>
 
           <div>

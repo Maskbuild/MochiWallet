@@ -63,6 +63,7 @@ export function initDb() {
       name TEXT NOT NULL,
       icon_emoji TEXT NOT NULL DEFAULT '🏪',
       color TEXT NOT NULL DEFAULT '#D6ECFF',
+      image_path TEXT,
       default_category_id INTEGER REFERENCES categories(id) ON DELETE SET NULL,
       note TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -146,6 +147,7 @@ export function initDb() {
   // Safe migrations for existing database
   addColumnIfNotExists('accounts', 'has_sub_accounts', 'INTEGER NOT NULL DEFAULT 0');
   addColumnIfNotExists('accounts', 'sub_accounts', "TEXT DEFAULT '[]'");
+  addColumnIfNotExists('shops', 'image_path', 'TEXT');
   addColumnIfNotExists('transactions', 'sub_account_id', 'TEXT');
   addColumnIfNotExists('transactions', 'to_sub_account_id', 'TEXT');
   addColumnIfNotExists('transactions', 'time_period', "TEXT DEFAULT 'afternoon'");
